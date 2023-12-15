@@ -11,7 +11,7 @@
     "build:watch": "modern build -w",
     "new": "modern new",
     "upgrade": "modern upgrade",
-    "prepublish": "modern bump",
+    "prepublish": "yarn test",
     "test": "jest --detectOpenHandles",
     "publish:minor": "npm version minor && npm publish",
     "publish:major": "npm version major && npm publish"
