@@ -1,17 +1,11 @@
 {
   "version": "independent",
   "npmClient": "yarn",
-  "useWorkspaces": true,
   "command": {
     "publish": {
-      "ignoreChanges": [
-        "apps/*"
-      ],
+      "ignoreChanges": ["apps/*"],
       "message": "chore(release): publish"
     }
   },
-  "packages": [
-    "apps/*",
-    "packages/*"
-  ]
+  "packages": ["apps/*", "packages/*"]
 }

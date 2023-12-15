@@ -1,6 +1,14 @@
 {
   "folders": [
     {
+      "name": "recube-demo",
+      "path": "apps/recube-demo/"
+    },
+    {
+      "name": "recube",
+      "path": "packages/recube/"
+    },
+    {
       "name": "monorepo",
       "path": "."
     }
@@ -23,7 +31,10 @@
       "**/node_modules": true
     },
     //
-    "editor.rulers": [80, 120],
+    "editor.rulers": [
+      80,
+      120
+    ],
     "files.eol": "\n",
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
