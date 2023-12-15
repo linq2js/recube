@@ -6,8 +6,15 @@ import { NOOP } from './utils';
 import { abortController } from './abortController';
 
 export type ExtraActions<TPayload> = {
-  loading: Action<TPayload, void>;
-  failed: Action<unknown, void>;
+  /**
+   * this action will be dispatched whenever the action body returns promise object
+   */
+  loading: Action<{ payload: TPayload }, void>;
+
+  /**
+   * this action will be dispatched whenerver the action body throws an error or returns rejected promise object
+   */
+  failed: Action<{ payload: TPayload; error: unknown }, void>;
 };
 
 export type CreateAction = {
@@ -127,7 +134,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       });
 
       wrappedPromise.finally(nextAction);
-      loadingAction?.(payload);
+      loadingAction?.({ payload });
     } else {
       try {
         onDispatch.emit(result);
@@ -139,7 +146,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
 
     if (error) {
       changeResultAction?.(new ActionData(error, 'error'));
-      failedAction?.(error);
+      failedAction?.({ payload, error });
       throw error;
     } else {
       changeResultAction?.(new ActionData(lastResult, 'result'));

@@ -81,7 +81,11 @@ export type State<TValue, TParams = void> = {
     (action: AnyAction, staleOptions: StaleOptions): State<TValue, TParams>;
   };
 
-  wipe: () => void;
+  wipe: (filter?: (params: TParams) => boolean) => void;
+
+  size: () => number;
+
+  forEach: (callback: (params: TParams) => void) => void;
 };
 
 export type ActionMiddleware<TPayload = any> = (

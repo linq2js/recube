@@ -16,6 +16,7 @@ import { action as createAction } from './action';
 
 export type StateInstance = {
   readonly value: any;
+  readonly params: any;
   when: (action: Action<any, any>, options: AnyFunc | StaleOptions) => void;
   dispose: () => void;
 };
@@ -30,116 +31,11 @@ const createState = <T, P = void>(
   init: T | ((params: P) => T),
   _: StateOptions = {},
 ) => {
-  const instances = objectKeyedMap<P, StateInstance>();
+  const instances = objectKeyedMap<P, StateInstance>({
+    onRemove: x => x.dispose(),
+  });
   const onCreate = emitter<StateInstance>();
   let equalFn = STRICT_EQUAL;
-  let staled = true;
-
-  const createInstance = (params: P) => {
-    let value: any;
-    let unwatch: VoidFunction | undefined;
-    // hold computation error
-    let error: any;
-    const onChange = emitter();
-    const onDispose = emitter();
-
-    const change = (nextValue: any) => {
-      if (equalFn(value, nextValue)) {
-        // nothing change
-        return;
-      }
-
-      if (isPromiseLike(nextValue)) {
-        value = asyncResult(nextValue);
-      }
-      value = nextValue;
-      onChange.emit();
-    };
-
-    const computeValue = () => {
-      staled = false;
-      error = undefined;
-
-      if (typeof init === 'function') {
-        const [{ watch }, result] = stateInterceptor.apply(() => {
-          try {
-            return (init as AnyFunc)(params);
-          } catch (ex) {
-            error = ex;
-            return undefined;
-          }
-        });
-        // we keep watching even if an error occurs
-        unwatch = watch(() => {
-          staled = true;
-          unwatch?.();
-
-          if (onChange.size()) {
-            computeValue();
-          }
-        });
-
-        if (!error) {
-          change(result);
-        }
-      } else {
-        change(init);
-      }
-    };
-
-    const instance: StateInstance = {
-      get value() {
-        if (staled) {
-          computeValue();
-        }
-
-        if (error) {
-          throw error;
-        }
-
-        stateInterceptor.current?.addListenable(onChange.add);
-
-        return value;
-      },
-      when(action, staleOptionsOrReducer) {
-        let listener: (result: any) => void;
-
-        if (typeof staleOptionsOrReducer === 'function') {
-          const reducer = staleOptionsOrReducer;
-          listener = result => {
-            try {
-              const nextValue = reducer(value, result, { params });
-              change(nextValue);
-            } catch (ex) {
-              error = ex;
-              onChange.emit();
-            }
-          };
-        }
-        // stale options
-        else {
-          const staleOptions = staleOptionsOrReducer;
-          listener = () => {
-            // mark as staled
-            staled = true;
-            if (staleOptions.notify) {
-              onChange.emit();
-            }
-          };
-        }
-
-        onDispose.add(action.on(listener));
-      },
-      dispose() {
-        unwatch?.();
-        onDispose.emit();
-      },
-    };
-
-    onCreate.emit(instance);
-
-    return instance;
-  };
 
   let prevParams: P | undefined;
   let prevInstance: StateInstance | undefined;
@@ -149,7 +45,7 @@ const createState = <T, P = void>(
     instances.forEach(callback);
   };
 
-  const def: State<T, P> = Object.assign(
+  const definition: State<T, P> = Object.assign(
     (params: P) => {
       // improve performance by storing prev params and instance
       // using prev instance if the params and prev params is the same
@@ -157,7 +53,11 @@ const createState = <T, P = void>(
         return prevInstance.value;
       }
       prevParams = params;
-      prevInstance = instances.getOrAdd(params, createInstance);
+      prevInstance = instances.getOrAdd(params, () => {
+        const instance = createInstance(init, params, equalFn);
+        onCreate.emit(instance);
+        return instance;
+      });
       return prevInstance.value;
     },
     {
@@ -167,35 +67,150 @@ const createState = <T, P = void>(
         options: StaleOptions | AnyFunc = DEFAULT_REDUCER,
       ) {
         applyAll(({ when }) => when(action, options));
-        return def;
+        return definition;
       },
       action(reducer: AnyFunc | Record<string, AnyFunc>): any {
         if (typeof reducer === 'function') {
           const action = createAction<any>();
-          def.when(action, reducer);
+          definition.when(action, reducer);
           return action;
         }
 
         const actions = {} as Record<string, AnyFunc>;
         Object.entries(reducer).forEach(([key, value]) => {
           const action = createAction<any>();
-          def.when(action, value);
+          definition.when(action, value);
           actions[key] = action;
         });
         return actions;
       },
       dedup(equal: AnyFunc) {
         equalFn = equal;
-        return def;
+        return definition;
       },
-      wipe() {
-        instances.forEach(x => x.dispose());
-        instances.clear();
+      wipe(filter?: AnyFunc) {
+        if (filter) {
+          instances.delete(filter);
+        } else {
+          instances.clear();
+        }
+      },
+      size() {
+        return instances.size;
+      },
+      forEach(callback: AnyFunc) {
+        instances.forEach(x => callback(x.params));
       },
     },
   );
 
-  return def;
+  return definition;
+};
+
+const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
+  let value: any;
+  let staled = true;
+  let unwatch: VoidFunction | undefined;
+  // hold computation error
+  let error: any;
+  const onChange = emitter();
+  const onDispose = emitter();
+
+  const change = (nextValue: any) => {
+    if (equalFn(value, nextValue)) {
+      // nothing change
+      return;
+    }
+
+    if (isPromiseLike(nextValue)) {
+      value = asyncResult(nextValue);
+    }
+    value = nextValue;
+    onChange.emit();
+  };
+
+  const computeValue = () => {
+    staled = false;
+    error = undefined;
+
+    if (typeof init === 'function') {
+      const [{ watch }, result] = stateInterceptor.apply(() => {
+        try {
+          return (init as AnyFunc)(params);
+        } catch (ex) {
+          error = ex;
+          return undefined;
+        }
+      });
+      // we keep watching even if an error occurs
+      unwatch = watch(() => {
+        staled = true;
+        unwatch?.();
+
+        if (onChange.size()) {
+          computeValue();
+        }
+      });
+
+      if (!error) {
+        change(result);
+      }
+    } else {
+      change(init);
+    }
+  };
+
+  const instance: StateInstance = {
+    params,
+    get value() {
+      if (staled) {
+        computeValue();
+      }
+
+      if (error) {
+        throw error;
+      }
+
+      stateInterceptor.current?.addListenable(onChange.add);
+
+      return value;
+    },
+    when(action, staleOptionsOrReducer) {
+      let listener: (result: any) => void;
+
+      if (typeof staleOptionsOrReducer === 'function') {
+        const reducer = staleOptionsOrReducer;
+        listener = result => {
+          try {
+            const nextValue = reducer(value, result, { params });
+            change(nextValue);
+          } catch (ex) {
+            error = ex;
+            onChange.emit();
+          }
+        };
+      }
+      // stale options
+      else {
+        const staleOptions = staleOptionsOrReducer;
+        listener = () => {
+          // mark as staled
+          staled = true;
+          if (staleOptions.notify) {
+            onChange.emit();
+          }
+        };
+      }
+
+      onDispose.add(action.on(listener));
+    },
+    dispose() {
+      unwatch?.();
+      onDispose.emit();
+    },
+  };
+
+  return instance;
 };
 
 export const state = <T, P = void>(

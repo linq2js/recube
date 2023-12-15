@@ -45,7 +45,7 @@ const fetchTodos = () =>
 const todoListState = state(fetchTodos)
   .when(
     addTodo.loading,
-    mutate((draft, { clientId, title }) => {
+    mutate((draft, { payload: { clientId, title } }) => {
       draft.unshift({
         id: `client-${clientId}`,
         title,

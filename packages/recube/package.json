@@ -12,7 +12,7 @@
     "new": "modern new",
     "upgrade": "modern upgrade",
     "prepublish": "modern bump",
-    "test": "jest",
+    "test": "jest --detectOpenHandles",
     "pub": "npm publish"
   },
   "dependencies": {

@@ -1,11 +1,15 @@
 import { equal } from '@wry/equality';
-import { NoInfer } from './types';
+import { AnyFunc, NoInfer } from './types';
 
 const isObject = (value: any) => {
   return typeof value === 'object' && value;
 };
 
-export const objectKeyedMap = <K, V>() => {
+export type MapOptions<K, V> = {
+  onRemove?: (value: NoInfer<V>, key: NoInfer<K>) => void;
+};
+
+export const objectKeyedMap = <K, V>({ onRemove }: MapOptions<K, V> = {}) => {
   type Item = { key: K; value: V };
   const list: Item[] = [];
   const map = new Map<any, Item>();
@@ -54,6 +58,10 @@ export const objectKeyedMap = <K, V>() => {
       return map.size + list.length;
     },
     clear() {
+      if (onRemove) {
+        map.forEach(x => onRemove(x.value, x.key));
+        list.forEach(x => onRemove(x.value, x.key));
+      }
       map.clear();
       list.length = 0;
     },
@@ -61,15 +69,43 @@ export const objectKeyedMap = <K, V>() => {
       map.forEach(x => callback(x.value, x.key));
       list.forEach(x => callback(x.value, x.key));
     },
-    delete(key: K) {
-      const { loc, index, item } = find(key);
-      if (!item) {
-        return;
-      }
-      if (loc === 'map') {
-        map.delete(key);
+    delete(keyOrFilter: K | ((value: V, key: K) => boolean)) {
+      if (typeof keyOrFilter === 'function') {
+        const filter = keyOrFilter as AnyFunc;
+        const removedKeys: K[] = [];
+        const removedIndices: number[] = [];
+        map.forEach(x => {
+          if (filter(x.value, x.key)) {
+            onRemove?.(x.value, x.key);
+            removedKeys.push(x.key);
+          }
+        });
+        list.forEach((x, i) => {
+          if (filter(x.value, x.key)) {
+            onRemove?.(x.value, x.key);
+            removedIndices.push(i);
+          }
+        });
+        while (removedKeys.length) {
+          map.delete(removedKeys.pop());
+        }
+        while (removedIndices.length) {
+          list.splice(removedIndices.pop() ?? 0, 1);
+        }
       } else {
-        list.splice(index, 1);
+        const key = keyOrFilter;
+        const { loc, index, item } = find(key);
+        if (!item) {
+          return;
+        }
+
+        onRemove?.(item.value, item.key);
+
+        if (loc === 'map') {
+          map.delete(key);
+        } else {
+          list.splice(index, 1);
+        }
       }
     },
   };
