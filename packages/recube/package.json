@@ -1,6 +1,6 @@
 {
   "name": "recube",
-  "version": "0.1.0",
+  "version": "2.1.0",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/lib/index.js",
   "module": "./dist/es/index.js",
@@ -13,14 +13,15 @@
     "upgrade": "modern upgrade",
     "prepublish": "modern bump",
     "test": "jest --detectOpenHandles",
-    "change": "modern change && npm publish"
+    "publish:minor": "npm version minor && npm publish",
+    "publish:major": "npm version major && npm publish"
   },
   "dependencies": {
     "@wry/equality": "0.5.7",
     "immer": "10.0.3"
   },
   "peerDependencies": {
-    "react": "^17"
+    "react": "*"
   },
   "devDependencies": {
     "@modern-js/module-tools": "2.42.1",
