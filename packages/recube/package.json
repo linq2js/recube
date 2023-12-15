@@ -13,7 +13,7 @@
     "upgrade": "modern upgrade",
     "prepublish": "modern bump",
     "test": "jest --detectOpenHandles",
-    "pub": "npm publish"
+    "change": "modern change"
   },
   "dependencies": {
     "@wry/equality": "0.5.7",
