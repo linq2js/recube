@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Helmet } from '@modern-js/runtime/head';
 import './index.css';
 import {
@@ -121,6 +122,21 @@ const TodoForm = cube(() => {
   );
 });
 
+// state() can retrieve init function that will be called to get initial state value
+// initial state can be promise object or normal value
+// if the init function returns promise object, the state becomes async state
+const userProfileState = state(async () => {
+  await delay(1000);
+  // fetch user profile from server
+  return fetch('https://dummyjson.com/users/1').then(res => res.json());
+});
+
+const UserProfilePage = cube(() => {
+  const userProfile = waitAll(userProfileState);
+
+  return <pre>{JSON.stringify(userProfile, null, 2)}</pre>;
+});
+
 const Index = () => (
   <div className="container-box">
     <Helmet>
@@ -133,8 +149,7 @@ const Index = () => (
     <main>
       <div>
         <Suspense fallback={<div>Loading...</div>}>
-          <TodoForm />
-          <TodoList />
+          <UserProfilePage />
         </Suspense>
       </div>
     </main>

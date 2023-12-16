@@ -1,6 +1,7 @@
 import { scope } from './scope';
 
 const SIGNAL_PROP = Symbol('signal');
+const ABORTED_ERROR_PROP = Symbol('abortedError');
 
 const onAbort = (signal: AbortSignal, listener: (reason: any) => void) => {
   const wrapper = () => listener(signal.reason);
@@ -32,7 +33,7 @@ const create = (...otherControllers: { [SIGNAL_PROP]: AbortSignal }[]) => {
     unsubscribe.push(onAbort(x[SIGNAL_PROP], abortWrapper));
   });
 
-  return {
+  const wrappedAc = {
     [SIGNAL_PROP]: ac.signal,
     get aborted() {
       return ac.signal.aborted;
@@ -46,11 +47,18 @@ const create = (...otherControllers: { [SIGNAL_PROP]: AbortSignal }[]) => {
     },
     throwIfAborted() {
       if (ac.signal.aborted) {
-        throw new Error(ac.signal.reason);
+        throw Object.assign(new Error(ac.signal.reason), {
+          [ABORTED_ERROR_PROP]: true,
+        });
       }
-      ac.signal.throwIfAborted();
+    },
+    apply<T>(fn: () => T) {
+      const [, result] = abortController.apply(fn, wrappedAc as any);
+      return result;
     },
   };
+
+  return wrappedAc;
 };
 
 export const abortController = Object.assign(scope(create), {
@@ -64,5 +72,8 @@ export const abortController = Object.assign(scope(create), {
     const ac = create();
     setTimeout(ac.abort, ms, 'Timeout');
     return ac;
+  },
+  isAbortedError(value: any): value is Error {
+    return value?.[ABORTED_ERROR_PROP];
   },
 });

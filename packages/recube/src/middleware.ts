@@ -1,5 +1,10 @@
 /* eslint-disable no-nested-ternary */
-import { ActionMiddleware, ActionMiddlewareContext, AnyAction } from './types';
+import {
+  ActionMiddleware,
+  ActionMiddlewareContext,
+  AnyAction,
+  Observable,
+} from './types';
 
 const DEBOUNCE_TIMEOUT_ID_PROP = Symbol('debounceTimeoutId');
 const THROTTLE_LAST_EXECUTION_TIME_PROP = Symbol('throttleLastExecutionTime');
@@ -73,22 +78,26 @@ export type ToggleOptions =
 export const toggle = (options: ToggleOptions): ActionMiddleware => {
   const createMiddleware = (
     initialState: 'on' | 'off',
-    on: AnyAction | AnyAction[],
-    off: AnyAction | AnyAction[] | 'self',
+    on: Observable | Observable[],
+    off: Observable | Observable[] | 'self',
   ): ActionMiddleware => {
     let state = initialState;
     const initialized = false;
 
-    return ({ on: selfOn }, dispatch) => {
+    return (context, dispatch) => {
       if (!initialized) {
         const toggleOn = () => (state = 'on');
         const toggleOff = () => (state = 'off');
-        const onListenable = (Array.isArray(on) ? on : [on]).map(x => x.on);
-        const offListenable =
-          off === 'self' ? [selfOn] : Array.isArray(off) ? off : [off];
+        const onObservable = Array.isArray(on) ? on : [on];
+        const offObservable =
+          off === 'self'
+            ? [{ on: context.on }]
+            : Array.isArray(off)
+            ? off
+            : [off];
 
-        onListenable.forEach(listenable => listenable(toggleOn));
-        offListenable.forEach(listenable => listenable(toggleOff));
+        onObservable.forEach(x => x.on(toggleOn));
+        offObservable.forEach(x => x.on(toggleOff));
       }
 
       if (state === 'on') {

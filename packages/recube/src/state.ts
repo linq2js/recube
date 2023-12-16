@@ -1,9 +1,9 @@
 import { produce } from 'immer';
 import {
-  Action,
   AnyFunc,
   ImmutableType,
   NoInfer,
+  Observable,
   StaleOptions,
   State,
 } from './types';
@@ -17,7 +17,7 @@ import { action as createAction } from './action';
 export type StateInstance = {
   readonly value: any;
   readonly params: any;
-  when: (action: Action<any, any>, options: AnyFunc | StaleOptions) => void;
+  when: (observable: Observable, options: AnyFunc | StaleOptions) => void;
   dispose: () => void;
 };
 
@@ -41,7 +41,7 @@ const createState = <T, P = void>(
   let prevInstance: StateInstance | undefined;
 
   const applyAll = (callback: (instance: StateInstance) => void) => {
-    onCreate.add(callback);
+    onCreate.on(callback);
     instances.forEach(callback);
   };
 
@@ -63,10 +63,10 @@ const createState = <T, P = void>(
     {
       type: 'state' as const,
       when(
-        action: Action<any, any>,
+        observable: Observable,
         options: StaleOptions | AnyFunc = DEFAULT_REDUCER,
       ) {
-        applyAll(({ when }) => when(action, options));
+        applyAll(({ when }) => when(observable, options));
         return definition;
       },
       action(reducer: AnyFunc | Record<string, AnyFunc>): any {
@@ -129,7 +129,14 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     onChange.emit();
   };
 
-  const computeValue = () => {
+  const computeValue = (forceRecompute?: boolean) => {
+    if (forceRecompute) {
+      staled = true;
+    }
+
+    if (!staled) {
+      return;
+    }
     staled = false;
     error = undefined;
 
@@ -148,7 +155,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         unwatch?.();
 
         if (onChange.size()) {
-          computeValue();
+          computeValue(true);
         }
       });
 
@@ -163,22 +170,22 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   const instance: StateInstance = {
     params,
     get value() {
-      if (staled) {
-        computeValue();
-      }
+      computeValue();
 
       if (error) {
         throw error;
       }
 
-      stateInterceptor.current?.addListenable(onChange.add);
+      stateInterceptor.current?.addObservable(onChange);
 
       return value;
     },
-    when(action, staleOptionsOrReducer) {
+    when(observable, staleOptionsOrReducer) {
       let listener: (result: any) => void;
 
       if (typeof staleOptionsOrReducer === 'function') {
+        computeValue();
+
         const reducer = staleOptionsOrReducer;
         listener = result => {
           try {
@@ -202,7 +209,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         };
       }
 
-      onDispose.add(action.on(listener));
+      onDispose.on(observable.on(listener));
     },
     dispose() {
       unwatch?.();

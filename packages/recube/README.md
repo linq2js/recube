@@ -64,6 +64,50 @@ const App = cube(() => {
 });
 ```
 
+## Using async state
+
+```tsx
+import React, { Suspense } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+import { waitAll, state, cube } from 'recube';
+
+type User = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  age: number;
+};
+
+// state() can retrieve init function that will be called to get initial state value
+// initial state can be promise object or normal value
+// if the init function returns promise object, the state becomes async state
+const userProfileState = state(() => {
+  // fetch user profile from server
+  return fetch('https://dummyjson.com/users/1').then(res =>
+    res.json(),
+  ) as Promise<User>;
+});
+
+const UserProfilePage = cube(() => {
+  // waitAll return resolved value of the async state
+  // if the promise object of state is not resolved, a promise object will be thrown up to Suspense component
+  // if the promise object of state is rejected, an error will be thrown up to ErrorBoundary component
+  const userProfile = waitAll(userProfileState);
+  // we don't need to put any async processing logic here, just render resolved value
+  return <pre>{JSON.stringify(userProfile, null, 2)}</pre>;
+});
+
+const App = () => {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<div>Loading...</div>}>
+        <UserProfilePage />
+      </Suspense>
+    </ErrorBoundary>
+  );
+};
+```
+
 ## Advanced Concepts
 
 Middleware Usage: Learn how to extend Recube with custom middleware.

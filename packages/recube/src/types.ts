@@ -1,3 +1,5 @@
+import { Emitter } from './emitter';
+
 export type AnyFunc = (...args: any[]) => any;
 
 export type NoInfer<T> = [T][T extends any ? 0 : never];
@@ -14,6 +16,10 @@ export type StateContext<P> = {
 export type StaleOptions = {
   stale: true;
   notify?: boolean;
+};
+
+export type Observable<T = any> = {
+  on: Subscribe<T>;
 };
 
 export type State<TValue, TParams = void> = {
@@ -62,14 +68,18 @@ export type State<TValue, TParams = void> = {
   };
 
   when: {
-    <TAction extends Action<any, any, any>>(action: TAction): TAction extends
-      | Action<TValue, any, any>
-      | Action<Promise<TValue>, any, any>
-      ? State<TValue, TParams>
-      : never;
+    /**
+     * when specified action dispatched, use the action result to mutate the state
+     */
+    <TObservable extends Observable<TValue | Promise<TValue>>>(
+      action: TObservable,
+    ): State<TValue, TParams>;
 
+    /**
+     * when specified action dispatched, the reducer will be called to create next state value
+     */
     <TResult, TNext>(
-      action: Action<TResult, any, any>,
+      observable: Observable<TResult>,
       reducer: (
         value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
         result: TResult extends Promise<infer D> ? D : TResult,
@@ -78,7 +88,10 @@ export type State<TValue, TParams = void> = {
     ): State<TValue | TNext, TParams>;
 
     // stale
-    (action: AnyAction, staleOptions: StaleOptions): State<TValue, TParams>;
+    (observable: Observable, staleOptions: StaleOptions): State<
+      TValue,
+      TParams
+    >;
   };
 
   wipe: (filter?: (params: TParams) => boolean) => void;
@@ -109,12 +122,14 @@ export type ActionMiddlewareContext<TPayload = any> = {
    */
   payload: () => TPayload;
 
-  on: Listenable<void>;
+  on: Subscribe<void>;
 };
 
 export type AnyAction = Action<any, any, any>;
 
-export type Action<TData = void, TPayload = void, TReturn = TData> = {
+export type Action<TData = void, TPayload = void, TReturn = TData> = Observable<
+  TData extends Promise<infer D> ? D : TData
+> & {
   readonly type: 'action';
 
   (payload: TPayload): TReturn extends Promise<infer D>
@@ -125,26 +140,47 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = {
     ...middleware: ActionMiddleware<TPayload>[]
   ) => Action<TData, TPayload, void>;
 
-  on: (
-    listener: (result: TData extends Promise<infer D> ? D : never) => void,
-  ) => VoidFunction;
-
   readonly called: () => boolean;
   /**
    * state that holds last execution result
    */
   readonly result: State<TData | undefined>;
 
+  /**
+   * eturns current payload. Returns undefined if action is not executed yet
+   * @returns
+   */
   payload: () => TPayload | undefined;
 
+  /**
+   * returns whether action is calling or not
+   * @returns
+   */
   calling: () => boolean;
 
+  /**
+   * cancel current execution
+   * @returns
+   */
   cancel: () => void;
+
+  /**
+   * create a new observable object from current action observable using specified builders
+   * @param filter
+   * @param otherFilters
+   * @returns
+   */
+  with: (
+    filter: ActionFilter<TData>,
+    ...otherFilters: ActionFilter<TData>[]
+  ) => Observable<TData>;
 };
 
-export type Listenable<T = void> = (
-  listener: (args: T) => void,
-) => VoidFunction;
+export type Listener<T> = (args: T) => void;
+
+export type ActionFilter<T> = (next: Emitter<T>) => Subscribe<T>;
+
+export type Subscribe<T = void> = (listener: Listener<T>) => VoidFunction;
 
 export type AwaitableItem<TAnyPromise extends boolean = false> =
   TAnyPromise extends true
@@ -163,8 +199,7 @@ export type Loadable<T> =
   | { loading: false; error: any; data: undefined }
   | { loading: true; data: undefined; error: undefined };
 
-export type AsyncResult<T = any> = Promise<T> &
-  Loadable<T> & { on: (listener: VoidFunction) => VoidFunction };
+export type AsyncResult<T = any> = Promise<T> & Loadable<T> & Observable<void>;
 
 export type ImmutableType =
   | string

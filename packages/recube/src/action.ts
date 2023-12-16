@@ -1,5 +1,11 @@
 import { emitter } from './emitter';
-import { Action, ActionMiddlewareContext, AnyFunc, State } from './types';
+import {
+  Action,
+  ActionFilter,
+  ActionMiddlewareContext,
+  AnyFunc,
+  State,
+} from './types';
 import { asyncResult, isPromiseLike } from './async';
 import { state } from './state';
 import { NOOP } from './utils';
@@ -69,7 +75,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     cancel: NOOP,
     onDone: [],
     payload: () => null as any,
-    on: onDispatch.add,
+    on: onDispatch.on,
   };
 
   const nextAction = () => {
@@ -181,7 +187,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       result: undefined as any,
       loading: undefined as any,
       failed: undefined as any,
-      on: onDispatch.add,
+      on: onDispatch.on,
       called() {
         return Boolean(context.called) as any;
       },
@@ -190,6 +196,16 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       calling: DEFAULT_CALLING,
       use(...newMiddleware: AnyFunc[]) {
         return create(body, newMiddleware.concat(newMiddleware));
+      },
+      with(...filters: ActionFilter<any>[]) {
+        return filters.reduceRight((next, funnel) => {
+          const current = emitter<any>();
+          next.on(current.emit);
+
+          return Object.assign(current, {
+            on: funnel(next),
+          });
+        }, onDispatch);
       },
     },
   );

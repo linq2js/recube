@@ -123,7 +123,7 @@ const createWait =
       if (useLoadable) {
         if (result.loading) {
           // tell current context should listen async result change event
-          stateInterceptor.current?.addListenable(result.on);
+          stateInterceptor.current?.addObservable(result);
         }
 
         return result;

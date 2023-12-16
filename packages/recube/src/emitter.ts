@@ -1,15 +1,27 @@
-export const emitter = <T = void>() => {
-  type Listener = (args: T) => void;
+import { Listener, Observable } from './types';
+
+export type Emitter<T> = Observable<T> & {
+  size: () => number;
+  emit: (args: T) => void;
+  emitted: () => boolean;
+  lastArgs: () => T | undefined;
+};
+
+export const emitter = <T = void>(): Emitter<T> => {
   let emitting = false;
-  const listeners = new Set<Listener>();
-  const queue: { type: 'add' | 'delete'; listener: Listener }[] = [];
+  let emitted = false;
+  let lastArgs: any;
+  const listeners = new Set<Listener<T>>();
+  const queue: { type: 'add' | 'delete'; listener: Listener<T> }[] = [];
 
   return {
     size() {
       return listeners.size;
     },
-    emit(args: T) {
+    emit(args) {
       emitting = true;
+      emitted = true;
+      lastArgs = args;
       try {
         listeners.forEach(listener => listener(args));
       } finally {
@@ -19,7 +31,7 @@ export const emitter = <T = void>() => {
         });
       }
     },
-    add(listener: Listener) {
+    on(listener) {
       if (emitting) {
         queue.push({ type: 'add', listener });
       } else {
@@ -37,6 +49,12 @@ export const emitter = <T = void>() => {
           listeners.delete(listener);
         }
       };
+    },
+    emitted() {
+      return emitted;
+    },
+    lastArgs() {
+      return lastArgs;
     },
   };
 };
