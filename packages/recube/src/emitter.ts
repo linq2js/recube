@@ -1,27 +1,62 @@
-import { Listener, Observable } from './types';
+import { Listener, NoInfer, Listenable } from './types';
 
-export type Emitter<T> = Observable<T> & {
+export type Emitter<T> = Listenable<T> & {
   size: () => number;
   emit: (args: T) => void;
   emitted: () => boolean;
-  lastArgs: () => T | undefined;
+  last: () => T | undefined;
+  dispose: () => void;
 };
 
-export const emitter = <T = void>(): Emitter<T> => {
+export type EmitterOptions<T> = {
+  onDispose?: VoidFunction;
+  equal?: (a: T, b: T) => boolean;
+};
+
+export const emitter = <T = void>({
+  onDispose,
+  equal,
+}: EmitterOptions<NoInfer<T>> = {}): Emitter<T> => {
   let emitting = false;
   let emitted = false;
-  let lastArgs: any;
+  let last: any;
+  let disposed = false;
+  const unsubscribeMap = new WeakMap<Listener<any>, VoidFunction>();
   const listeners = new Set<Listener<T>>();
   const queue: { type: 'add' | 'delete'; listener: Listener<T> }[] = [];
+
+  const getUnsubscribe = (listener: Listener<any>) => {
+    let unsubscribe = unsubscribeMap.get(listener);
+    if (!unsubscribe) {
+      let active = true;
+      unsubscribe = () => {
+        if (!active) {
+          return;
+        }
+        active = false;
+        if (emitting) {
+          queue.push({ type: 'delete', listener });
+        } else {
+          listeners.delete(listener);
+        }
+      };
+
+      unsubscribeMap.set(listener, unsubscribe);
+    }
+    return unsubscribe;
+  };
 
   return {
     size() {
       return listeners.size;
     },
     emit(args) {
+      if (emitted && equal?.(last, args)) {
+        return;
+      }
       emitting = true;
       emitted = true;
-      lastArgs = args;
+      last = args;
       try {
         listeners.forEach(listener => listener(args));
       } finally {
@@ -37,24 +72,21 @@ export const emitter = <T = void>(): Emitter<T> => {
       } else {
         listeners.add(listener);
       }
-      let active = true;
-      return () => {
-        if (!active) {
-          return;
-        }
-        active = false;
-        if (emitting) {
-          queue.push({ type: 'delete', listener });
-        } else {
-          listeners.delete(listener);
-        }
-      };
+
+      return getUnsubscribe(listener);
     },
     emitted() {
       return emitted;
     },
-    lastArgs() {
-      return lastArgs;
+    last() {
+      return last;
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      onDispose?.();
     },
   };
 };

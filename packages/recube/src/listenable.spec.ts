@@ -1,8 +1,8 @@
 import { action } from './action';
-import { recent, once } from './observable';
+import { recent, once } from './listenable';
 import { state } from './state';
 
-describe('observable', () => {
+describe('listenable', () => {
   test('recent', () => {
     const increment = action();
     // dispatch action before state created

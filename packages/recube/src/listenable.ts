@@ -1,5 +1,5 @@
-import { Emitter } from './emitter';
-import { Subscribe } from './types';
+import { Emitter, emitter } from './emitter';
+import { Listenable, Subscribe } from './types';
 import { NOOP } from './utils';
 
 export const once = <T>(next: Emitter<T>): Subscribe<T> => {
@@ -25,9 +25,15 @@ export const recent = <T>(next: Emitter<T>): Subscribe<T> => {
     const unsubscribe = next.on(listener);
 
     if (next.emitted()) {
-      listener(next.lastArgs() as T);
+      listener(next.last() as T);
     }
 
     return unsubscribe;
   };
+};
+
+export const any = <T>(...listenables: Listenable<T>[]) => {
+  const centralized = emitter<T>();
+  listenables.forEach(x => x.on(centralized.emit));
+  return centralized;
 };

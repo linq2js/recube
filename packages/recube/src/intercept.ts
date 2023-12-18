@@ -1,19 +1,23 @@
 import { scope } from './scope';
-import { Observable } from './types';
+import { Listenable } from './types';
 
 export const stateInterceptor = scope(() => {
-  const observableList = new Set<Observable>();
+  const listenableList = new Set<Listenable>();
   const disposableList = new Set<VoidFunction>();
-  const activeWatchers = new Set<{ watch: (observable: Observable) => void }>();
+  const activeWatchers = new Set<{ watch: (listenable: Listenable) => void }>();
 
   return {
     disposableList,
-    addObservable(observable: Observable<any>) {
-      const { size } = observableList;
-      observableList.add(observable);
-      const hasChange = size !== observableList.size;
+    addListenable(...listenables: Listenable[]) {
+      const { size } = listenableList;
+      listenables.forEach(listenable => {
+        listenableList.add(listenable);
+      });
+      const hasChange = size !== listenableList.size;
       if (hasChange) {
-        activeWatchers.forEach(x => x.watch(observable));
+        activeWatchers.forEach(x => {
+          listenables.forEach(listenable => x.watch(listenable));
+        });
       }
     },
     addDisposable(dispose: VoidFunction) {
@@ -22,11 +26,11 @@ export const stateInterceptor = scope(() => {
     watch(onChange: VoidFunction) {
       const unsubscribes: VoidFunction[] = [];
       const watcher = {
-        watch(observable: Observable) {
-          unsubscribes.push(observable.on(onChange));
+        watch(listenable: Listenable) {
+          unsubscribes.push(listenable.on(onChange));
         },
       };
-      observableList.forEach(watcher.watch);
+      listenableList.forEach(watcher.watch);
       activeWatchers.add(watcher);
 
       return () => {

@@ -3,7 +3,7 @@ import {
   ActionMiddleware,
   ActionMiddlewareContext,
   AnyAction,
-  Observable,
+  Listenable,
 } from './types';
 
 const DEBOUNCE_TIMEOUT_ID_PROP = Symbol('debounceTimeoutId');
@@ -78,8 +78,8 @@ export type ToggleOptions =
 export const toggle = (options: ToggleOptions): ActionMiddleware => {
   const createMiddleware = (
     initialState: 'on' | 'off',
-    on: Observable | Observable[],
-    off: Observable | Observable[] | 'self',
+    on: Listenable | Listenable[],
+    off: Listenable | Listenable[] | 'self',
   ): ActionMiddleware => {
     let state = initialState;
     const initialized = false;
@@ -88,16 +88,16 @@ export const toggle = (options: ToggleOptions): ActionMiddleware => {
       if (!initialized) {
         const toggleOn = () => (state = 'on');
         const toggleOff = () => (state = 'off');
-        const onObservable = Array.isArray(on) ? on : [on];
-        const offObservable =
+        const onListenable = Array.isArray(on) ? on : [on];
+        const offListenable =
           off === 'self'
             ? [{ on: context.on }]
             : Array.isArray(off)
             ? off
             : [off];
 
-        onObservable.forEach(x => x.on(toggleOn));
-        offObservable.forEach(x => x.on(toggleOff));
+        onListenable.forEach(x => x.on(toggleOn));
+        offListenable.forEach(x => x.on(toggleOff));
       }
 
       if (state === 'on') {

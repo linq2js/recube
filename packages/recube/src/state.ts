@@ -3,9 +3,10 @@ import {
   AnyFunc,
   ImmutableType,
   NoInfer,
-  Observable,
+  Listenable,
   StaleOptions,
   State,
+  Listener,
 } from './types';
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
@@ -17,7 +18,10 @@ import { action as createAction } from './action';
 export type StateInstance = {
   readonly value: any;
   readonly params: any;
-  when: (observable: Observable, options: AnyFunc | StaleOptions) => void;
+  when: (
+    listenable: Listenable,
+    options: AnyFunc | StaleOptions<any, any>,
+  ) => void;
   dispose: () => void;
 };
 
@@ -31,7 +35,12 @@ const createState = <T, P = void>(
   init: T | ((params: P) => T),
   _: StateOptions = {},
 ) => {
-  const instances = objectKeyedMap<P, StateInstance>({
+  const instances = objectKeyedMap({
+    create: (params: P) => {
+      const instance = createInstance(init, params, equalFn);
+      onCreate.emit(instance);
+      return instance;
+    },
     onRemove: x => x.dispose(),
   });
   const onCreate = emitter<StateInstance>();
@@ -53,20 +62,16 @@ const createState = <T, P = void>(
         return prevInstance.value;
       }
       prevParams = params;
-      prevInstance = instances.getOrAdd(params, () => {
-        const instance = createInstance(init, params, equalFn);
-        onCreate.emit(instance);
-        return instance;
-      });
+      prevInstance = instances.get(params);
       return prevInstance.value;
     },
     {
       type: 'state' as const,
       when(
-        observable: Observable,
-        options: StaleOptions | AnyFunc = DEFAULT_REDUCER,
+        listenable: Listenable,
+        options: StaleOptions<any, any> | AnyFunc = DEFAULT_REDUCER,
       ) {
-        applyAll(({ when }) => when(observable, options));
+        applyAll(({ when }) => when(listenable, options));
         return definition;
       },
       action(reducer: AnyFunc | Record<string, AnyFunc>): any {
@@ -84,7 +89,7 @@ const createState = <T, P = void>(
         });
         return actions;
       },
-      dedup(equal: AnyFunc) {
+      distinct(equal: AnyFunc) {
         equalFn = equal;
         return definition;
       },
@@ -126,7 +131,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       value = asyncResult(nextValue);
     }
     value = nextValue;
-    onChange.emit();
+    onChange.emit(value);
   };
 
   const computeValue = (forceRecompute?: boolean) => {
@@ -176,12 +181,12 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         throw error;
       }
 
-      stateInterceptor.current?.addObservable(onChange);
+      stateInterceptor.current?.addListenable(onChange);
 
       return value;
     },
-    when(observable, staleOptionsOrReducer) {
-      let listener: (result: any) => void;
+    when(listenable, staleOptionsOrReducer) {
+      let listener: Listener;
 
       if (typeof staleOptionsOrReducer === 'function') {
         computeValue();
@@ -200,7 +205,13 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       // stale options
       else {
         const staleOptions = staleOptionsOrReducer;
-        listener = () => {
+        listener = data => {
+          if (
+            typeof staleOptions.stale === 'function' &&
+            !staleOptions.stale(value, data)
+          ) {
+            return;
+          }
           // mark as staled
           staled = true;
           if (staleOptions.notify) {
@@ -209,7 +220,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         };
       }
 
-      onDispose.on(observable.on(listener));
+      onDispose.on(listenable.on(listener));
     },
     dispose() {
       unwatch?.();

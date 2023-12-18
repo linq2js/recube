@@ -24,9 +24,12 @@ export const cube = <P extends Record<string, any>>(
     const container = props.__container;
     const rerender = useState<any>()[1];
     const [onDispose] = useState(() => new Set<VoidFunction>());
+    const unwatchRef = useRef<VoidFunction>();
 
     container.propUsages.clear();
     container.rendering = true;
+
+    unwatchRef.current?.();
 
     const [{ watch, disposableList }, result] = stateInterceptor.apply(() =>
       render(container.propsProxy),
@@ -35,14 +38,16 @@ export const cube = <P extends Record<string, any>>(
     disposableList.forEach(x => onDispose.add(x));
     container.rendering = false;
 
-    useEffect(() =>
-      watch(() => {
-        rerender({});
-      }),
-    );
+    unwatchRef.current = watch(() => {
+      if (container.rendering) {
+        return;
+      }
+      rerender({});
+    });
 
     useEffect(
       () => () => {
+        unwatchRef.current?.();
         onDispose.forEach(x => x());
       },
       [onDispose],
@@ -122,6 +127,7 @@ export const cube = <P extends Record<string, any>>(
 
       const selectedProps = {} as any;
 
+      // we pass non-function props to Inner only
       Object.entries(props).forEach(([key, actualValue]) => {
         if (typeof actualValue === 'function') {
           return;

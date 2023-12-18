@@ -7,12 +7,10 @@ export const useComputed = <T>(fn: () => T) => {
     value: null as unknown as T,
     unwatch: undefined as VoidFunction | undefined,
   }));
+  ref.unwatch?.();
   const [{ watch }, result] = stateInterceptor.apply(fn);
   ref.value = result;
-
-  useEffect(() => {
-    ref.unwatch = watch(() => rerender({}));
-  });
+  ref.unwatch = watch(() => rerender({}));
 
   useEffect(
     () => () => {

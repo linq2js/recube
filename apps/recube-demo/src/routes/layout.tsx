@@ -1,8 +1,23 @@
-import { Outlet } from '@modern-js/runtime/router';
+import './index.css';
+import { Link, Outlet, useLocation } from '@modern-js/runtime/router';
 
 export default function Layout() {
+  const location = useLocation();
+
   return (
     <div>
+      {location.pathname !== '/' && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}
+        >
+          <Link to="/">Home</Link>
+        </div>
+      )}
       <Outlet />
     </div>
   );

@@ -8,5 +8,6 @@ export * from './async';
 export * from './utils';
 export * from './stable';
 export * from './abortController';
-export * from './observable';
+export * from './listenable';
+export * from './objectKeyedMap';
 export { state, mutate } from './state';

@@ -1,7 +1,7 @@
 import { emitter } from './emitter';
 import {
   Action,
-  ActionFilter,
+  ActionTransmitter,
   ActionMiddlewareContext,
   AnyFunc,
   State,
@@ -51,10 +51,11 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   let loadingAction: Action<any, any> | undefined;
   let failedAction: Action<any, any> | undefined;
   let resultState: State<any, void> | undefined;
+  let equalFn: AnyFunc | undefined;
   // keep last result for late use with resultState
   let lastResult: any;
 
-  const getResult = () => {
+  const getResultState = () => {
     if (!resultState) {
       changeResultAction = action<ActionData>();
       resultState = state(lastResult, { name: '#ACTION_RESULT' });
@@ -85,7 +86,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
 
   const updateContext = (props: Partial<ActionMiddlewareContext>) => {
     Object.assign(context, props);
-    Object.assign(a, props);
+    Object.assign(instance, props);
   };
 
   const dispatch = (...args: any[]): any => {
@@ -148,26 +149,34 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
         nextAction();
       }
     }
-    lastResult = result;
 
     if (error) {
       changeResultAction?.(new ActionData(error, 'error'));
       failedAction?.({ payload, error });
       throw error;
     } else {
-      changeResultAction?.(new ActionData(lastResult, 'result'));
+      changeResultAction?.(new ActionData(result, 'result'));
     }
 
     return result;
   };
 
-  const a = Object.assign(
+  const instance = Object.assign(
     (...args: any[]) => {
-      if (!middleware.length) {
-        return dispatch(...args);
-      }
       const payload = args[0];
+
+      // when distinct mode enabled, skip dispatching if previous payload is equal to current payload
+      if (equalFn && context.called && equalFn(payload, context.payload)) {
+        return lastResult;
+      }
+
+      if (!middleware.length) {
+        lastResult = dispatch(...args);
+        return lastResult;
+      }
+
       context.payload = () => payload;
+
       const wrappedDispatch = middleware.reduceRight(
         (next, wrapper) => {
           return () => {
@@ -197,8 +206,8 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       use(...newMiddleware: AnyFunc[]) {
         return create(body, newMiddleware.concat(newMiddleware));
       },
-      with(...filters: ActionFilter<any>[]) {
-        return filters.reduceRight((next, funnel) => {
+      with(...transmitters: ActionTransmitter<any>[]) {
+        return transmitters.reduceRight((next, funnel) => {
           const current = emitter<any>();
           next.on(current.emit);
 
@@ -207,11 +216,15 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
           });
         }, onDispatch);
       },
+      distinct(equal: AnyFunc) {
+        equalFn = equal;
+        return instance;
+      },
     },
   );
 
-  Object.defineProperties(a, {
-    result: { get: getResult },
+  Object.defineProperties(instance, {
+    result: { get: getResultState },
     failed: {
       get() {
         if (!failedAction) {
@@ -230,7 +243,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     },
   });
 
-  return a;
+  return instance;
 };
 
 export const action: CreateAction = create;

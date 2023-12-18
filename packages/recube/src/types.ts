@@ -13,12 +13,12 @@ export type StateContext<P> = {
   readonly params: P;
 };
 
-export type StaleOptions = {
-  stale: true;
+export type StaleOptions<TValue, TData> = {
+  stale: true | ((value: TValue, data: TData) => boolean);
   notify?: boolean;
 };
 
-export type Observable<T = any> = {
+export type Listenable<T = any> = {
   on: Subscribe<T>;
 };
 
@@ -27,7 +27,9 @@ export type State<TValue, TParams = void> = {
 
   (params: TParams): TValue extends Promise<infer D> ? AsyncResult<D> : TValue;
 
-  dedup: (equalFn: (a: TValue, b: TValue) => boolean) => State<TValue, TParams>;
+  distinct: (
+    equalFn: (a: TValue, b: TValue) => boolean,
+  ) => State<TValue, TParams>;
 
   /**
    * create an action/action map and handle state reducing whenever the action(s) dispatched
@@ -69,29 +71,27 @@ export type State<TValue, TParams = void> = {
 
   when: {
     /**
-     * when specified action dispatched, use the action result to mutate the state
+     * listen specified event and mutate the state with event data
      */
-    <TObservable extends Observable<TValue | Promise<TValue>>>(
-      action: TObservable,
-    ): State<TValue, TParams>;
+    <TData>(listenable: Listenable<TData>): State<TValue | TData, TParams>;
 
     /**
-     * when specified action dispatched, the reducer will be called to create next state value
+     * listen specified event and mutate the state with result of reducer
      */
-    <TResult, TNext>(
-      observable: Observable<TResult>,
+    <TData, TNext>(
+      listenable: Listenable<TData>,
       reducer: (
         value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
-        result: TResult extends Promise<infer D> ? D : TResult,
+        result: TData extends Promise<infer D> ? D : TData,
         context: StateContext<TParams>,
       ) => TNext,
     ): State<TValue | TNext, TParams>;
 
-    // stale
-    (observable: Observable, staleOptions: StaleOptions): State<
-      TValue,
-      TParams
-    >;
+    // listen specified event and mark the state is staled
+    <TData>(
+      listenable: Listenable<TData>,
+      staleOptions: StaleOptions<TValue, TData>,
+    ): State<TValue, TParams>;
   };
 
   wipe: (filter?: (params: TParams) => boolean) => void;
@@ -127,7 +127,7 @@ export type ActionMiddlewareContext<TPayload = any> = {
 
 export type AnyAction = Action<any, any, any>;
 
-export type Action<TData = void, TPayload = void, TReturn = TData> = Observable<
+export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
   TData extends Promise<infer D> ? D : TData
 > & {
   readonly type: 'action';
@@ -165,20 +165,24 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Observable<
   cancel: () => void;
 
   /**
-   * create a new observable object from current action observable using specified builders
-   * @param filter
-   * @param otherFilters
+   * create a new listenable object from current action listenable using specified transmitters
+   * @param transmitter
+   * @param otherTransmitters
    * @returns
    */
   with: (
-    filter: ActionFilter<TData>,
-    ...otherFilters: ActionFilter<TData>[]
-  ) => Observable<TData>;
+    transmitter: ActionTransmitter<TData>,
+    ...otherTransmitters: ActionTransmitter<TData>[]
+  ) => Listenable<TData>;
+
+  distinct: (
+    equalFn: (a: TPayload, b: TPayload) => boolean,
+  ) => Action<TData, TPayload, TReturn>;
 };
 
-export type Listener<T> = (args: T) => void;
+export type Listener<T = any> = (args: T) => void;
 
-export type ActionFilter<T> = (next: Emitter<T>) => Subscribe<T>;
+export type ActionTransmitter<T> = (next: Emitter<T>) => Subscribe<T>;
 
 export type Subscribe<T = void> = (listener: Listener<T>) => VoidFunction;
 
@@ -199,7 +203,7 @@ export type Loadable<T> =
   | { loading: false; error: any; data: undefined }
   | { loading: true; data: undefined; error: undefined };
 
-export type AsyncResult<T = any> = Promise<T> & Loadable<T> & Observable<void>;
+export type AsyncResult<T = any> = Promise<T> & Loadable<T> & Listenable<void>;
 
 export type ImmutableType =
   | string

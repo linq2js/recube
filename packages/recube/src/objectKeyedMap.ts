@@ -1,6 +1,10 @@
 import { equal } from '@wry/equality';
 import { AnyFunc, NoInfer } from './types';
 
+export type Create<K, V> = (key: K) => V;
+
+export type WithCreateOptions<K, V> = { create: Create<K, V> };
+
 const isObject = (value: any) => {
   return typeof value === 'object' && value;
 };
@@ -9,12 +13,32 @@ export type MapOptions<K, V> = {
   onRemove?: (value: NoInfer<V>, key: NoInfer<K>) => void;
 };
 
-export const objectKeyedMap = <K, V>({ onRemove }: MapOptions<K, V> = {}) => {
-  type Item = { key: K; value: V };
+export type ObjectKeyedMap<K, V, THasCreate extends boolean = false> = {
+  get: (key: K) => THasCreate extends true ? V : V | undefined;
+  readonly size: number;
+  clear: () => void;
+  forEach: (callback: (value: V, key: K) => void) => void;
+  delete: (keyOrFilter: K | ((value: V, key: K) => boolean)) => void;
+};
+
+export type CreateObjectKeyedMap = {
+  <K, V>(options: WithCreateOptions<K, V> & MapOptions<K, V>): ObjectKeyedMap<
+    K,
+    V,
+    true
+  >;
+
+  <K, V>(options: MapOptions<K, V>): ObjectKeyedMap<K, V>;
+};
+
+export const objectKeyedMap: CreateObjectKeyedMap = (options = {}) => {
+  const { create, onRemove } = options as MapOptions<any, any> &
+    WithCreateOptions<any, any>;
+  type Item = { key: any; value: any };
   const list: Item[] = [];
   const map = new Map<any, Item>();
 
-  const find = (key: K) => {
+  const find = (key: any) => {
     const loc = isObject(key) ? ('list' as const) : ('map' as const);
     if (loc === 'map') {
       return {
@@ -31,14 +55,14 @@ export const objectKeyedMap = <K, V>({ onRemove }: MapOptions<K, V> = {}) => {
     };
   };
 
-  const get = (key: K) => {
-    return find(key).item?.value;
-  };
-
-  const getOrAdd = (key: K, create: (key: NoInfer<K>) => V) => {
+  const get = (key: any) => {
     const { item, loc } = find(key);
 
     if (!item) {
+      if (!create) {
+        return undefined;
+      }
+
       const value = create(key);
       if (loc === 'map') {
         map.set(key, { value, key });
@@ -53,7 +77,6 @@ export const objectKeyedMap = <K, V>({ onRemove }: MapOptions<K, V> = {}) => {
 
   return {
     get,
-    getOrAdd,
     get size() {
       return map.size + list.length;
     },
@@ -65,14 +88,14 @@ export const objectKeyedMap = <K, V>({ onRemove }: MapOptions<K, V> = {}) => {
       map.clear();
       list.length = 0;
     },
-    forEach(callback: (value: V, key: K) => void) {
+    forEach(callback: (value: any, key: any) => void) {
       map.forEach(x => callback(x.value, x.key));
       list.forEach(x => callback(x.value, x.key));
     },
-    delete(keyOrFilter: K | ((value: V, key: K) => boolean)) {
+    delete(keyOrFilter: any) {
       if (typeof keyOrFilter === 'function') {
         const filter = keyOrFilter as AnyFunc;
-        const removedKeys: K[] = [];
+        const removedKeys: any[] = [];
         const removedIndices: number[] = [];
         map.forEach(x => {
           if (filter(x.value, x.key)) {
