@@ -1,39 +1,40 @@
-import { Emitter, emitter } from './emitter';
-import { Listenable, Subscribe } from './types';
-import { NOOP } from './utils';
+import { emitter } from './emitter';
+import { Listenable } from './types';
 
-export const once = <T>(next: Emitter<T>): Subscribe<T> => {
+export const once = <T>(listenable: Listenable<T>): Listenable<T> => {
   let emitted = false;
-
-  return listener => {
-    if (emitted) {
-      return NOOP;
-    }
-
-    const unsubscribe = next.on(args => {
-      emitted = true;
-      unsubscribe();
-      return listener(args);
-    });
-
-    return unsubscribe;
-  };
+  return emitter.from(listenable, {
+    transmitter(listener) {
+      return args => {
+        if (emitted) {
+          return;
+        }
+        emitted = true;
+        listener(args);
+      };
+    },
+  });
 };
 
-export const recent = <T>(next: Emitter<T>): Subscribe<T> => {
-  return listener => {
-    const unsubscribe = next.on(listener);
+export const recent = <T>(listenable: Listenable<T>): Listenable<T> => {
+  let handleRecentLogic = false;
 
-    if (next.emitted()) {
-      listener(next.last() as T);
-    }
-
-    return unsubscribe;
-  };
+  return emitter.from(listenable, {
+    transmitter(listener) {
+      if (!handleRecentLogic) {
+        handleRecentLogic = true;
+        const all = listenable.all?.();
+        if (all?.length) {
+          listener(all[all.length - 1]);
+        }
+      }
+      return listener;
+    },
+  });
 };
 
-export const any = <T>(...listenables: Listenable<T>[]) => {
-  const centralized = emitter<T>();
-  listenables.forEach(x => x.on(centralized.emit));
-  return centralized;
+export const any = <T>(...listenables: Listenable<T>[]): Listenable<T> => {
+  const next = emitter<T>();
+  listenables.forEach(x => x.on(next.emit));
+  return next;
 };

@@ -1,5 +1,3 @@
-import { Emitter } from './emitter';
-
 export type AnyFunc = (...args: any[]) => any;
 
 export type NoInfer<T> = [T][T extends any ? 0 : never];
@@ -20,6 +18,7 @@ export type StaleOptions<TValue, TData> = {
 
 export type Listenable<T = any> = {
   on: Subscribe<T>;
+  all?: () => readonly T[];
 };
 
 export type State<TValue, TParams = void> = {
@@ -106,11 +105,16 @@ export type ActionMiddleware<TPayload = any> = (
   dispatch: VoidFunction,
 ) => void;
 
-export type ActionMiddlewareContext<TPayload = any> = {
+export type Accessor<T = any> = {
+  (): T;
+  (value: T): void;
+};
+
+export type ActionMiddlewareContext<TData = any> = {
   cancel: () => void;
   onDone: VoidFunction[];
   calling: () => boolean;
-  readonly called: number;
+  all: () => readonly TData[];
   /**
    * The data object persists across action executions
    */
@@ -120,7 +124,7 @@ export type ActionMiddlewareContext<TPayload = any> = {
    * get current payload
    * @returns
    */
-  payload: () => TPayload;
+  payload: () => TData;
 
   on: Subscribe<void>;
 };
@@ -136,18 +140,44 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     ? AsyncResult<D>
     : TReturn;
 
+  pipe: {
+    <R1>(f1: (p: Listenable<TData>) => R1): R1;
+
+    <R1, R2>(f1: (p: Listenable<TData>) => R1, f2: (p: R1) => R2): R2;
+
+    <R1, R2, R3>(
+      f1: (p: Listenable<TData>) => R1,
+      f2: (p: R1) => R2,
+      f3: (p: R2) => R3,
+    ): R3;
+
+    <R1, R2, R3, R4>(
+      f1: (p: Listenable<TData>) => R1,
+      f2: (p: R1) => R2,
+      f3: (p: R2) => R3,
+      f4: (p: R3) => R4,
+    ): R4;
+
+    <R1, R2, R3, R4, R5>(
+      f1: (p: Listenable<TData>) => R1,
+      f2: (p: R1) => R2,
+      f3: (p: R2) => R3,
+      f4: (p: R3) => R4,
+      f5: (p: R4) => R5,
+    ): R5;
+  };
+
   use: (
     ...middleware: ActionMiddleware<TPayload>[]
   ) => Action<TData, TPayload, void>;
 
-  readonly called: () => boolean;
   /**
    * state that holds last execution result
    */
   readonly result: State<TData | undefined>;
 
   /**
-   * eturns current payload. Returns undefined if action is not executed yet
+   * returns current payload. Returns undefined if action is not executed yet
    * @returns
    */
   payload: () => TPayload | undefined;
@@ -164,25 +194,14 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    */
   cancel: () => void;
 
-  /**
-   * create a new listenable object from current action listenable using specified transmitters
-   * @param transmitter
-   * @param otherTransmitters
-   * @returns
-   */
-  with: (
-    transmitter: ActionTransmitter<TData>,
-    ...otherTransmitters: ActionTransmitter<TData>[]
-  ) => Listenable<TData>;
-
   distinct: (
     equalFn: (a: TPayload, b: TPayload) => boolean,
   ) => Action<TData, TPayload, TReturn>;
+
+  all: () => TData[];
 };
 
 export type Listener<T = any> = (args: T) => void;
-
-export type ActionTransmitter<T> = (next: Emitter<T>) => Subscribe<T>;
 
 export type Subscribe<T = void> = (listener: Listener<T>) => VoidFunction;
 

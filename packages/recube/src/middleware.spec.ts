@@ -1,6 +1,13 @@
 import { action } from './action';
 import { delay } from './async';
-import { droppable, restartable, sequential, toggle } from './middleware';
+import {
+  debounce,
+  throttle,
+  droppable,
+  restartable,
+  sequential,
+  toggle,
+} from './middleware';
 
 const asyncCall = async (payload: { value: number; ms?: number }) => {
   await delay(payload.ms ?? 10);
@@ -76,5 +83,37 @@ describe('toggle', () => {
     login();
 
     expect(log).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('debounce', () => {
+  test('#1', async () => {
+    const log = jest.fn();
+    const doSomething = action(log.bind(null, 'doSomething')).use(debounce(10));
+    doSomething();
+    doSomething();
+    doSomething();
+
+    expect(log).toHaveBeenCalledTimes(0);
+    await delay(50);
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('throttle', () => {
+  test('#1', async () => {
+    const log = jest.fn();
+    const doSomething = action(log.bind(null, 'doSomething')).use(
+      throttle(100),
+    );
+    doSomething();
+    expect(log).toHaveBeenCalledTimes(1);
+    await delay(10);
+    expect(log).toHaveBeenCalledTimes(1);
+    doSomething();
+    expect(log).toHaveBeenCalledTimes(1);
+    await delay(120);
+    doSomething();
+    expect(log).toHaveBeenCalledTimes(2);
   });
 });

@@ -9,7 +9,7 @@ export const checkTypes = {
         const doSomething = action(() => {
           return 1;
         });
-        if (!doSomething.called()) {
+        if (!doSomething.all.length) {
           doSomething.result()?.toPrecision();
         }
       },

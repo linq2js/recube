@@ -12,10 +12,10 @@ export default function Layout() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            marginBottom: 20,
+            margin: 20,
           }}
         >
-          <Link to="/">Home</Link>
+          <Link to="/">Back to Home</Link>
         </div>
       )}
       <Outlet />

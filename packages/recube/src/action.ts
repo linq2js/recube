@@ -1,11 +1,5 @@
 import { emitter } from './emitter';
-import {
-  Action,
-  ActionTransmitter,
-  ActionMiddlewareContext,
-  AnyFunc,
-  State,
-} from './types';
+import { Action, ActionMiddlewareContext, AnyFunc, State } from './types';
 import { asyncResult, isPromiseLike } from './async';
 import { state } from './state';
 import { NOOP } from './utils';
@@ -68,10 +62,12 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     }
     return resultState;
   };
-
-  const context: ActionMiddlewareContext & { called: number } = {
+  const all: any[] = [];
+  const context: ActionMiddlewareContext = {
     data: {},
-    called: 0,
+    all() {
+      return all;
+    },
     calling: DEFAULT_CALLING,
     cancel: NOOP,
     onDone: [],
@@ -95,7 +91,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     ac?.throwIfAborted();
     let cancelled = false;
     let calling = true;
-    context.called++;
+    all.push(payload);
     updateContext({
       calling: DEFAULT_CALLING,
       cancel() {
@@ -166,7 +162,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       const payload = args[0];
 
       // when distinct mode enabled, skip dispatching if previous payload is equal to current payload
-      if (equalFn && context.called && equalFn(payload, context.payload)) {
+      if (equalFn && all.length && equalFn(payload, context.payload)) {
         return lastResult;
       }
 
@@ -197,24 +193,20 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       loading: undefined as any,
       failed: undefined as any,
       on: onDispatch.on,
-      called() {
-        return Boolean(context.called) as any;
+      all() {
+        return all;
       },
       payload: NOOP,
       cancel: NOOP,
       calling: DEFAULT_CALLING,
       use(...newMiddleware: AnyFunc[]) {
-        return create(body, newMiddleware.concat(newMiddleware));
+        return create(body, middleware.concat(newMiddleware));
       },
-      with(...transmitters: ActionTransmitter<any>[]) {
-        return transmitters.reduceRight((next, funnel) => {
-          const current = emitter<any>();
-          next.on(current.emit);
-
-          return Object.assign(current, {
-            on: funnel(next),
-          });
-        }, onDispatch);
+      pipe(...functions: AnyFunc[]): any {
+        return functions.reduce(
+          (payload, func) => func(payload),
+          instance as any,
+        );
       },
       distinct(equal: AnyFunc) {
         equalFn = equal;

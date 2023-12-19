@@ -1,13 +1,12 @@
 /* eslint-disable no-nested-ternary */
+import { emitter } from './emitter';
 import {
+  Accessor,
   ActionMiddleware,
   ActionMiddlewareContext,
   AnyAction,
   Listenable,
 } from './types';
-
-const DEBOUNCE_TIMEOUT_ID_PROP = Symbol('debounceTimeoutId');
-const THROTTLE_LAST_EXECUTION_TIME_PROP = Symbol('throttleLastExecutionTime');
 
 /**
  * dispatch action sequentially
@@ -44,31 +43,6 @@ export const restartable =
   ({ cancel }, dispatch) => {
     cancel();
     dispatch();
-  };
-
-/**
- * dispatch action after specified milliseconds
- * @param ms
- * @returns
- */
-export const debounce =
-  (ms: number): ActionMiddleware =>
-  ({ data }, dispatch) => {
-    const debounceTimeoutId = data[DEBOUNCE_TIMEOUT_ID_PROP];
-    clearTimeout(debounceTimeoutId);
-    data[DEBOUNCE_TIMEOUT_ID_PROP] = setTimeout(dispatch, ms);
-  };
-
-export const throttle =
-  (ms: number): ActionMiddleware =>
-  ({ data }, dispatch) => {
-    const next =
-      ((data[THROTTLE_LAST_EXECUTION_TIME_PROP] as number) ?? 0) + ms;
-    const now = performance.now();
-    if (next <= now) {
-      data[THROTTLE_LAST_EXECUTION_TIME_PROP] = now;
-      dispatch();
-    }
   };
 
 export type ToggleOptions =
@@ -142,3 +116,86 @@ export const filter =
       }
     }
   };
+
+export type MiddlewareOrListenable = {
+  <T>(context: ActionMiddlewareContext<T>, dispatch: VoidFunction): void;
+  <T>(listenable: Listenable<T>): Listenable<T>;
+};
+
+export const middlewareOrListenable = (
+  listenableFactory: (
+    data: Accessor,
+    listenable: Listenable<any>,
+  ) => Listenable<any>,
+  middleware: (
+    data: Accessor,
+    ...args: Parameters<ActionMiddleware<any>>
+  ) => ReturnType<ActionMiddleware<any>>,
+): MiddlewareOrListenable => {
+  const dataProp = Symbol('data');
+
+  return (...args: any[]): any => {
+    const context = args[0];
+    const dataAccessor = (...args: any[]) => {
+      if (args.length) {
+        context[dataProp] = args[0];
+        return undefined;
+      } else {
+        return context[dataProp];
+      }
+    };
+
+    if (typeof args[1] === 'function') {
+      return middleware(dataAccessor, args[0], args[1]);
+    }
+    return listenableFactory(dataAccessor, args[0]);
+  };
+};
+
+/**
+ * dispatch action after specified milliseconds
+ * @param ms
+ * @returns
+ */
+export const debounce = (ms: number) => {
+  const internal = (data: Accessor, dispatch: VoidFunction) => {
+    clearTimeout(data());
+    data(setTimeout(dispatch, ms));
+  };
+
+  return middlewareOrListenable(
+    (data, listenable) =>
+      emitter.from(listenable, {
+        transmitter(listener) {
+          return args => {
+            internal(data, () => listener(args));
+          };
+        },
+      }),
+    (data, _context, dispatch) => internal(data, dispatch),
+  );
+};
+
+export const throttle = (ms: number) => {
+  const internal = (data: Accessor, dispatch: VoidFunction) => {
+    const last: number = data() ?? 0;
+    const next = last + ms;
+    const now = performance.now();
+    if (next <= now) {
+      data(now);
+      dispatch();
+    }
+  };
+
+  return middlewareOrListenable(
+    (data, listenable) =>
+      emitter.from(listenable, {
+        transmitter(listener) {
+          return args => {
+            internal(data, () => listener(args));
+          };
+        },
+      }),
+    (data, _context, dispatch) => internal(data, dispatch),
+  );
+};
