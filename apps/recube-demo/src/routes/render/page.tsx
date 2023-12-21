@@ -98,7 +98,7 @@ const Parent = () => {
   );
 };
 
-const Render = () => (
+const RenderPage = () => (
   <div className="container-box">
     <main>
       <h1>Extreme Rendering Optimization</h1>
@@ -110,4 +110,4 @@ const Render = () => (
   </div>
 );
 
-export default Render;
+export default RenderPage;

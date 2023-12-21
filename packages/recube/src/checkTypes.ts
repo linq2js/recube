@@ -9,7 +9,7 @@ export const checkTypes = {
         const doSomething = action(() => {
           return 1;
         });
-        if (!doSomething.all.length) {
+        if (!doSomething.called()) {
           doSomething.result()?.toPrecision();
         }
       },
@@ -60,6 +60,8 @@ export const checkTypes = {
             return prev + by;
           },
         });
+        increment();
+        decrement(1);
         console.log(increment, decrement);
       },
     ],

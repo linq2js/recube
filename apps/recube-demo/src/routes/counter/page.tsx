@@ -17,7 +17,7 @@ const CounterValue = cube(() => {
   return <Box flash>{count()}</Box>;
 });
 
-export default () => {
+const CounterPage = () => {
   return (
     <main>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -27,3 +27,5 @@ export default () => {
     </main>
   );
 };
+
+export default CounterPage;

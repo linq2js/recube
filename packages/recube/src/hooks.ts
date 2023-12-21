@@ -8,7 +8,7 @@ export const useComputed = <T>(fn: () => T) => {
     unwatch: undefined as VoidFunction | undefined,
   }));
   ref.unwatch?.();
-  const [{ watch }, result] = stateInterceptor.apply(fn);
+  const [{ watch }, result] = stateInterceptor.wrap(fn);
   ref.value = result;
   ref.unwatch = watch(() => rerender({}));
 

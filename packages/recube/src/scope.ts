@@ -6,7 +6,7 @@ export const scope = <T extends object>(create: () => T) => {
   };
 
   return {
-    apply<R>(fn: () => R, customScope?: T) {
+    wrap<R>(fn: () => R, customScope?: T) {
       const current = customScope ?? create();
       stack.unshift(current);
       try {
@@ -15,7 +15,7 @@ export const scope = <T extends object>(create: () => T) => {
         stack.shift();
       }
     },
-    get current() {
+    current() {
       return getCurrent();
     },
   };

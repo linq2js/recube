@@ -31,7 +31,7 @@ export const cube = <P extends Record<string, any>>(
 
     unwatchRef.current?.();
 
-    const [{ watch, disposableList }, result] = stateInterceptor.apply(() =>
+    const [{ watch, disposableList }, result] = stateInterceptor.wrap(() =>
       render(container.propsProxy),
     );
 

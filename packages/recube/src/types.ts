@@ -18,8 +18,14 @@ export type StaleOptions<TValue, TData> = {
 
 export type Listenable<T = any> = {
   on: Subscribe<T>;
-  all?: () => readonly T[];
+  last?: () => T | null;
 };
+
+export type Reducer<TValue, TParams, TData, TNext> = (
+  value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
+  result: TData,
+  context: StateContext<TParams>,
+) => TNext;
 
 export type State<TValue, TParams = void> = {
   type: 'state';
@@ -34,22 +40,27 @@ export type State<TValue, TParams = void> = {
    * create an action/action map and handle state reducing whenever the action(s) dispatched
    */
   action: {
+    (options: StaleOptions<TValue, void>): Action;
+
     <TPayload>(
-      reducer: (
-        value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
-        result: TPayload,
-        context: StateContext<TParams>,
-      ) => TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue,
+      reducer: Reducer<
+        TValue,
+        TParams,
+        TPayload,
+        TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
+      >,
     ): Action<TPayload>;
 
     <
       TReducers extends Record<
         string,
-        (
-          value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
-          result: any,
-          context: StateContext<TParams>,
-        ) => TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
+        | Reducer<
+            TValue,
+            TParams,
+            any,
+            TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
+          >
+        | StaleOptions<TValue, any>
       >,
     >(
       reducers: TReducers,
@@ -62,8 +73,10 @@ export type State<TValue, TParams = void> = {
             value: any,
             result: infer TPayload,
             ...args: any[]
-          ) => any
-        ? Action<TPayload>
+          ) => TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
+        ? Action<TPayload, TPayload, TPayload>
+        : TReducers[key] extends StaleOptions<TValue, infer TData>
+        ? Action<TData, TData, TData>
         : never;
     };
   };
@@ -79,11 +92,7 @@ export type State<TValue, TParams = void> = {
      */
     <TData, TNext>(
       listenable: Listenable<TData>,
-      reducer: (
-        value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
-        result: TData extends Promise<infer D> ? D : TData,
-        context: StateContext<TParams>,
-      ) => TNext,
+      reducer: Reducer<TValue, TParams, TData, TNext>,
     ): State<TValue | TNext, TParams>;
 
     // listen specified event and mark the state is staled
@@ -100,8 +109,8 @@ export type State<TValue, TParams = void> = {
   forEach: (callback: (params: TParams) => void) => void;
 };
 
-export type ActionMiddleware<TPayload = any> = (
-  context: ActionMiddlewareContext<TPayload>,
+export type ActionMiddleware = (
+  context: ActionMiddlewareContext,
   dispatch: VoidFunction,
 ) => void;
 
@@ -110,21 +119,15 @@ export type Accessor<T = any> = {
   (value: T): void;
 };
 
-export type ActionMiddlewareContext<TData = any> = {
+export type ActionMiddlewareContext = {
   cancel: () => void;
   onDone: VoidFunction[];
   calling: () => boolean;
-  all: () => readonly TData[];
+  called: () => number;
   /**
    * The data object persists across action executions
    */
   readonly data: Record<string | number | symbol, any>;
-
-  /**
-   * get current payload
-   * @returns
-   */
-  payload: () => TData;
 
   on: Subscribe<void>;
 };
@@ -167,9 +170,7 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     ): R5;
   };
 
-  use: (
-    ...middleware: ActionMiddleware<TPayload>[]
-  ) => Action<TData, TPayload, void>;
+  use: (...middleware: ActionMiddleware[]) => Action<TData, TPayload, void>;
 
   /**
    * state that holds last execution result
@@ -180,13 +181,15 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    * returns current payload. Returns undefined if action is not executed yet
    * @returns
    */
-  payload: () => TPayload | undefined;
+  payload: () => TPayload | null;
 
   /**
    * returns whether action is calling or not
    * @returns
    */
   calling: () => boolean;
+
+  called: () => number;
 
   /**
    * cancel current execution
@@ -198,7 +201,7 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     equalFn: (a: TPayload, b: TPayload) => boolean,
   ) => Action<TData, TPayload, TReturn>;
 
-  all: () => TData[];
+  last: () => TData | null;
 };
 
 export type Listener<T = any> = (args: T) => void;

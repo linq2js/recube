@@ -1,4 +1,4 @@
-const Search = () => (
+const SearchPage = () => (
   <div className="container-box">
     <main>
       <h1>Search Demo</h1>
@@ -6,4 +6,4 @@ const Search = () => (
   </div>
 );
 
-export default Search;
+export default SearchPage;

@@ -1,25 +1,26 @@
 import { Link } from '@modern-js/runtime/router';
 
-const Index = () => (
+const links = {
+  '/counter': 'Counter',
+  '/render': 'Extreme Rendering Optimization',
+  '/search': 'Search',
+  '/todo': 'Todo',
+  '/cancellable': 'Cancellable',
+} as Record<string, string>;
+
+const IndexPage = () => (
   <div className="container-box">
     <main>
       <h1>Recube Demo</h1>
       <ul>
-        <li>
-          <Link to="/counter">Counter</Link>
-        </li>
-        <li>
-          <Link to="/render">Extreme Rendering Optimization</Link>
-        </li>
-        <li>
-          <Link to="/search">Search</Link>
-        </li>
-        <li>
-          <Link to="/todo">Todo</Link>
-        </li>
+        {Object.keys(links).map(key => (
+          <li key={key}>
+            <Link to={key}>{links[key]}</Link>
+          </li>
+        ))}
       </ul>
     </main>
   </div>
 );
 
-export default Index;
+export default IndexPage;

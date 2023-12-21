@@ -12,7 +12,7 @@ export const effect = (fn: (context: EffectContext) => void): VoidFunction => {
   const context = { count: 0 };
   const runEffect = () => {
     unwatch?.();
-    const [{ watch }] = stateInterceptor.apply(() => fn(context));
+    const [{ watch }] = stateInterceptor.wrap(() => fn(context));
     context.count++;
     unwatch = watch(runEffect);
   };

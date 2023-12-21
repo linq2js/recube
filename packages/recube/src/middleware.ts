@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { emitter } from './emitter';
+import { from } from './listenable';
 import {
   Accessor,
   ActionMiddleware,
@@ -95,30 +95,8 @@ export const toggle = (options: ToggleOptions): ActionMiddleware => {
   return createMiddleware('on', [], options.off);
 };
 
-/**
- * apply specified middleware if `filter` return true
- * if no middleware specified, next dispatch function will be called
- * @param filter
- * @param middleware
- * @returns
- */
-export const filter =
-  <TPayload = any>(
-    filter: (context: ActionMiddlewareContext<TPayload>) => boolean,
-    middleware?: ActionMiddleware<TPayload>,
-  ): ActionMiddleware<TPayload> =>
-  (context, dispatch) => {
-    if (filter(context)) {
-      if (middleware) {
-        middleware(context, dispatch);
-      } else {
-        dispatch();
-      }
-    }
-  };
-
 export type MiddlewareOrListenable = {
-  <T>(context: ActionMiddlewareContext<T>, dispatch: VoidFunction): void;
+  (context: ActionMiddlewareContext, dispatch: VoidFunction): void;
   <T>(listenable: Listenable<T>): Listenable<T>;
 };
 
@@ -129,8 +107,8 @@ export const middlewareOrListenable = (
   ) => Listenable<any>,
   middleware: (
     data: Accessor,
-    ...args: Parameters<ActionMiddleware<any>>
-  ) => ReturnType<ActionMiddleware<any>>,
+    ...args: Parameters<ActionMiddleware>
+  ) => ReturnType<ActionMiddleware>,
 ): MiddlewareOrListenable => {
   const dataProp = Symbol('data');
 
@@ -165,7 +143,7 @@ export const debounce = (ms: number) => {
 
   return middlewareOrListenable(
     (data, listenable) =>
-      emitter.from(listenable, {
+      from(listenable, {
         transmitter(listener) {
           return args => {
             internal(data, () => listener(args));
@@ -189,7 +167,7 @@ export const throttle = (ms: number) => {
 
   return middlewareOrListenable(
     (data, listenable) =>
-      emitter.from(listenable, {
+      from(listenable, {
         transmitter(listener) {
           return args => {
             internal(data, () => listener(args));

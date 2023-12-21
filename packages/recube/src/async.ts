@@ -1,3 +1,4 @@
+import { canceler } from './canceler';
 import { stateInterceptor } from './intercept';
 import { AnyFunc, AsyncResult, Awaitable, Loadable, State } from './types';
 
@@ -60,10 +61,11 @@ export const wait: Wait = (
   onResolve?: AnyFunc,
   onReject?: AnyFunc,
 ) => {
-  const interceptor = stateInterceptor.current;
+  const interceptor = stateInterceptor.current();
+  const co = canceler.current();
   const wrap = <T extends AnyFunc>(fn: T) => {
     return (...args: Parameters<T>) => {
-      const [, result] = stateInterceptor.apply(() => fn(...args), interceptor);
+      const [, result] = stateInterceptor.wrap(() => fn(...args), interceptor);
       return result;
     };
   };
@@ -87,16 +89,27 @@ export const wait: Wait = (
       }
       return asyncResult.reject(ex);
     }
-
-    if (!interceptor) {
-      return ex.then(onResolve, onReject);
-    }
-
-    if (!onResolve) {
-      return ex;
-    }
-
-    return asyncResult(ex.then(wrap(onResolve), onReject && wrap(onReject)));
+    const promise = ex;
+    return asyncResult(
+      new Promise((resolve, reject) => {
+        promise.then(
+          value => {
+            if (co?.cancelled()) {
+              return;
+            }
+            resolve(onResolve ? wrap(onResolve)(value) : value);
+          },
+          onReject
+            ? reason => {
+                if (co?.cancelled()) {
+                  return;
+                }
+                reject(wrap(onReject)(reason));
+              }
+            : undefined,
+        );
+      }),
+    );
   }
 };
 
@@ -123,7 +136,7 @@ const createWait =
       if (useLoadable) {
         if (result.loading) {
           // tell current context should listen async result change event
-          stateInterceptor.current?.addListenable(result);
+          stateInterceptor.current()?.addListenable(result);
         }
 
         return result;
@@ -259,9 +272,17 @@ export const isPromiseLike = <T>(value: any): value is Promise<T> => {
 
 export const delay = (ms = 0) => {
   let timeoutId: any;
+  const cc = canceler.current();
   return Object.assign(
-    new Promise<void>(resolve => {
-      timeoutId = setTimeout(resolve, ms);
+    new Promise<void>((resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        const e = cc?.error();
+        if (e) {
+          reject(e);
+        } else {
+          resolve(e);
+        }
+      }, ms);
     }),
     {
       cancel() {

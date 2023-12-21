@@ -3,7 +3,7 @@ import { Action, ActionMiddlewareContext, AnyFunc, State } from './types';
 import { asyncResult, isPromiseLike } from './async';
 import { state } from './state';
 import { NOOP } from './utils';
-import { abortController } from './abortController';
+import { canceler } from './canceler';
 
 export type ExtraActions<TPayload> = {
   /**
@@ -48,6 +48,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   let equalFn: AnyFunc | undefined;
   // keep last result for late use with resultState
   let lastResult: any;
+  const called = { payload: null as any, count: 0 };
 
   const getResultState = () => {
     if (!resultState) {
@@ -62,16 +63,15 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     }
     return resultState;
   };
-  const all: any[] = [];
+
   const context: ActionMiddlewareContext = {
     data: {},
-    all() {
-      return all;
+    called() {
+      return called.count;
     },
     calling: DEFAULT_CALLING,
     cancel: NOOP,
     onDone: [],
-    payload: () => null as any,
     on: onDispatch.on,
   };
 
@@ -87,11 +87,12 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
 
   const dispatch = (...args: any[]): any => {
     const payload = args[0];
-    const ac = abortController.current;
-    ac?.throwIfAborted();
+    const ac = canceler.current();
+    ac?.throwIfCancelled();
     let cancelled = false;
     let calling = true;
-    all.push(payload);
+    called.payload = payload;
+    called.count++;
     updateContext({
       calling: DEFAULT_CALLING,
       cancel() {
@@ -111,14 +112,14 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
         originalPromise
           .then(value => {
             calling = false;
-            if (!cancelled && !ac?.aborted) {
+            if (!cancelled && !ac?.cancelled) {
               resolve(value);
               onDispatch.emit(value);
             }
           })
           .catch(reason => {
             calling = false;
-            if (!cancelled && !ac?.aborted) {
+            if (!cancelled && !ac?.cancelled) {
               reject(reason);
             }
           });
@@ -162,7 +163,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       const payload = args[0];
 
       // when distinct mode enabled, skip dispatching if previous payload is equal to current payload
-      if (equalFn && all.length && equalFn(payload, context.payload)) {
+      if (equalFn && called.count && equalFn(payload, called.payload)) {
         return lastResult;
       }
 
@@ -170,8 +171,6 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
         lastResult = dispatch(...args);
         return lastResult;
       }
-
-      context.payload = () => payload;
 
       const wrappedDispatch = middleware.reduceRight(
         (next, wrapper) => {
@@ -193,10 +192,12 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       loading: undefined as any,
       failed: undefined as any,
       on: onDispatch.on,
-      all() {
-        return all;
+      called() {
+        return called.count;
       },
-      payload: NOOP,
+      payload() {
+        return called.count ? called.payload : null;
+      },
       cancel: NOOP,
       calling: DEFAULT_CALLING,
       use(...newMiddleware: AnyFunc[]) {
@@ -211,6 +212,9 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       distinct(equal: AnyFunc) {
         equalFn = equal;
         return instance;
+      },
+      last() {
+        return called.count ? called.payload : null;
       },
     },
   );

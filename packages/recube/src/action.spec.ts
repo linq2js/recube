@@ -1,4 +1,4 @@
-import { abortController } from './abortController';
+import { canceler } from './canceler';
 import { action } from './action';
 import { delay } from './async';
 import { effect } from './effect';
@@ -33,12 +33,12 @@ describe('wrapper', () => {
   });
 });
 
-describe('cancellable', () => {
-  test('cancellable with return value', async () => {
+describe('canceler', () => {
+  test('canceler with return value', async () => {
     const doSomething = action(async () => {
-      const ac = abortController.current;
+      const cc = canceler.current();
       await delay(10);
-      ac?.throwIfAborted();
+      cc?.throwIfCancelled();
       return 2;
     });
     const count = state(1).when(doSomething, (prev, result) => prev + result);
@@ -49,10 +49,10 @@ describe('cancellable', () => {
     await expect(r1).resolves.toBe(2);
     expect(count()).toBe(3);
 
-    const ac = abortController.create();
-    ac.apply(doSomething);
+    const cc = canceler();
+    cc.wrap(doSomething);
     await delay(5);
-    ac.abort();
+    cc.cancel();
     // nothing change because action dispatching cancelled
     expect(count()).toBe(3);
   });
