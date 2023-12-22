@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { action, cube, state } from 'recube';
+import { action, cube, state, propsChangeOptimization } from 'recube';
 import { Box } from '@/components/box';
 
 const log = action<string>();
@@ -98,16 +98,36 @@ const Parent = () => {
   );
 };
 
-const RenderPage = () => (
-  <div className="container-box">
-    <main>
-      <h1>Extreme Rendering Optimization</h1>
-      <div style={{ display: 'flex', gap: 20 }}>
-        <Parent />
-        <LogSection />
-      </div>
-    </main>
-  </div>
-);
+const RenderPage = () => {
+  const [enabled, setEnabled] = useState(() => propsChangeOptimization());
+  const handleChange = (value: boolean) => {
+    setEnabled(value);
+    propsChangeOptimization(value);
+  };
+
+  useEffect(() => () => propsChangeOptimization(true), []);
+
+  return (
+    <div className="container-box">
+      <main>
+        <h1>Extreme Rendering Optimization</h1>
+        <div>
+          <label>
+            Enable Props Change Optimization{' '}
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={() => handleChange(!enabled)}
+            />
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 20 }}>
+          <Parent key={String(enabled)} />
+          <LogSection />
+        </div>
+      </main>
+    </div>
+  );
+};
 
 export default RenderPage;

@@ -1,11 +1,13 @@
 import { render, fireEvent, act } from '@testing-library/react';
-import { PropsWithChildren, Suspense, useState } from 'react';
+import { PropsWithChildren, Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { cube } from './cube';
 import { action } from './action';
-import { state, mutate } from './state';
+import { state } from './state';
 import { delay, waitAll, waitAny, waitNone } from './async';
 import { swallowError } from './testUtils';
+import { alter } from './alter';
+import { computed } from './computed';
 
 // swallow the React error boundary log
 swallowError(
@@ -87,12 +89,12 @@ describe('rendering', () => {
     const state1 = state(async () => {
       await delay(10);
       return 1;
-    }).when(increment, mutate(incrementReducer));
+    }).when(increment, alter(incrementReducer));
 
     const state2 = state(async () => {
       await delay(10);
       return 2;
-    }).when(increment, mutate(incrementReducer));
+    }).when(increment, alter(incrementReducer));
 
     const Comp = cube(() => {
       const [s1, s2] = waitAll([state1, state2]);
@@ -108,7 +110,7 @@ describe('rendering', () => {
 
     getByText('loading');
 
-    await act(() => delay(100));
+    await act(() => delay(50));
 
     getByText('3');
 
@@ -146,7 +148,7 @@ describe('rendering', () => {
 
     getByText('loading');
 
-    await act(() => delay(100));
+    await act(() => delay(50));
 
     getByText('error');
   });
@@ -204,29 +206,6 @@ describe('rendering', () => {
     getByText('2');
   });
 
-  test('state should be disposed when the cube unmount', () => {
-    const values = [1, 2];
-    const Comp = cube(() => {
-      const [num] = useState(() => state(values.pop()));
-      return <div>{num()}</div>;
-    });
-    const { getByText, rerender } = render(
-      <Wrapper>
-        <Comp key="1" />
-      </Wrapper>,
-    );
-
-    getByText('2');
-
-    rerender(
-      <Wrapper>
-        <Comp key="2" />
-      </Wrapper>,
-    );
-
-    getByText('1');
-  });
-
   test('async action: should re-render if action result changed', async () => {
     const doSomething = action(() => delay(10));
 
@@ -244,7 +223,7 @@ describe('rendering', () => {
 
     getByText('loading');
 
-    await act(() => delay(100));
+    await act(() => delay(50));
 
     getByText('none');
   });
@@ -266,6 +245,39 @@ describe('rendering', () => {
 
     act(() => doSomething(2));
 
+    getByText('2');
+  });
+});
+
+describe('local state', () => {
+  test('#1', () => {
+    const increment = action();
+    const rerender = jest.fn();
+    const factor = state(1);
+    const count = state(0).when(increment, prev => prev + 1);
+    const Comp = cube(() => {
+      rerender();
+      const divBy5 = computed(() => factor() * Math.floor(count() / 5));
+      return <div>{divBy5}</div>;
+    });
+    const { getByText } = render(<Comp />);
+    expect(rerender).toHaveBeenCalledTimes(1);
+    getByText('0');
+
+    act(increment);
+    act(increment);
+    act(increment);
+    act(increment);
+    act(increment);
+    expect(rerender).toHaveBeenCalledTimes(2);
+    getByText('1');
+
+    act(increment);
+    act(increment);
+    act(increment);
+    act(increment);
+    act(increment);
+    expect(rerender).toHaveBeenCalledTimes(3);
     getByText('2');
   });
 });

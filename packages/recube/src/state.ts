@@ -1,17 +1,8 @@
-import { produce } from 'immer';
-import {
-  AnyFunc,
-  ImmutableType,
-  NoInfer,
-  Listenable,
-  StaleOptions,
-  State,
-  Listener,
-} from './types';
+import { AnyFunc, Listenable, StaleOptions, State, Listener } from './types';
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
 import { asyncResult, isPromiseLike } from './async';
-import { stateInterceptor } from './intercept';
+import { changeWatcher } from './changeWatcher';
 import { STRICT_EQUAL } from './utils';
 import { action as createAction } from './action';
 import { Canceler, canceler } from './canceler';
@@ -160,7 +151,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
     if (typeof init === 'function') {
       cc = canceler();
-      const [{ watch }, result] = stateInterceptor.wrap(() => {
+      const [{ watch }, result] = changeWatcher.wrap(() => {
         return cc?.wrap(() => {
           try {
             return (init as AnyFunc)(params);
@@ -197,7 +188,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         throw error;
       }
 
-      stateInterceptor.current()?.addListenable(onChange);
+      changeWatcher.current()?.addListenable(onChange);
 
       return value;
     },
@@ -253,36 +244,5 @@ export const state = <T, P = void>(
   init: ((params: P) => T) | T,
   options?: StateOptions,
 ): State<T, P> => {
-  const result: State<T, P> = createState(init, options);
-  stateInterceptor.current()?.addDisposable(result.wipe);
-  return result;
+  return createState(init, options);
 };
-
-export const mutate =
-  <T, A extends any[]>(
-    recipe: (
-      value: NoInfer<T>,
-      ...args: NoInfer<A>
-    ) => NoInfer<T extends ImmutableType ? T : void | T>,
-  ) =>
-  (value: T | PromiseLike<T>, ...args: A): T => {
-    const reducer = (resolved: any) =>
-      produce(resolved, (draft: T) => recipe(draft, ...args));
-
-    if (isPromiseLike(value)) {
-      const ar = asyncResult(value);
-
-      if (ar.error) {
-        return ar as any;
-      }
-
-      if (ar.loading) {
-        return ar.then(reducer) as any;
-      }
-
-      const next = reducer(ar.data);
-      return asyncResult.resolve(next) as any;
-    }
-
-    return reducer(value) as any;
-  };

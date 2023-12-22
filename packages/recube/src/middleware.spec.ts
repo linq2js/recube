@@ -103,16 +103,14 @@ describe('debounce', () => {
 describe('throttle', () => {
   test('#1', async () => {
     const log = jest.fn();
-    const doSomething = action(log.bind(null, 'doSomething')).use(
-      throttle(100),
-    );
+    const doSomething = action(log.bind(null, 'doSomething')).use(throttle(50));
     doSomething();
     expect(log).toHaveBeenCalledTimes(1);
     await delay(10);
     expect(log).toHaveBeenCalledTimes(1);
     doSomething();
     expect(log).toHaveBeenCalledTimes(1);
-    await delay(120);
+    await delay(60);
     doSomething();
     expect(log).toHaveBeenCalledTimes(2);
   });

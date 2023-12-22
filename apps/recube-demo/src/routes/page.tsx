@@ -6,6 +6,7 @@ const links = {
   '/search': 'Search',
   '/todo': 'Todo',
   '/cancellable': 'Cancellable',
+  '/conditionalDependency': 'Conditional Dependency',
 } as Record<string, string>;
 
 const IndexPage = () => (

@@ -42,6 +42,35 @@ describe('when', () => {
   });
 });
 
+describe('derived state', () => {
+  test('conditional', () => {
+    type PriceType = 'discount' | 'origin';
+    const changePrice = action<number>();
+    const changePriceType = action<PriceType>();
+    const changeDiscount = action<number>();
+    const priceType = state<PriceType>('discount').when(changePriceType);
+    const price = state(10).when(changePrice);
+    const discount = state(0.1).when(changeDiscount);
+    const finalPrice = state(() => {
+      if (priceType() === 'discount') {
+        return price() - price() * discount();
+      }
+      // no discount dependency
+      return price();
+    });
+
+    expect(finalPrice()).toBe(9);
+    // changing `price` should affects `finalPrice`
+    changePrice(20);
+    expect(finalPrice()).toBe(18);
+    changePriceType('origin');
+    expect(finalPrice()).toBe(20);
+    // changing discount does not affect finalPrice
+    changeDiscount(0.5);
+    expect(finalPrice()).toBe(20);
+  });
+});
+
 describe('canceler', () => {
   test('canceler must exist when recomputing/reducing state', () => {
     const increment = action();

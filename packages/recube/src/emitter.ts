@@ -1,4 +1,4 @@
-import { Listener, Listenable } from './types';
+import { Listener, Listenable, Equal } from './types';
 import { NOOP } from './utils';
 
 export type Emitter<T> = Listenable<T> & {
@@ -12,7 +12,7 @@ export type Emitter<T> = Listenable<T> & {
 
 export type EmitterOptions<T> = {
   onDispose?: VoidFunction;
-  equal?: (a: T, b: T) => boolean;
+  equal?: Equal<T>;
   transmitter?: (listener: Listener<T>) => Listener<T> | undefined;
 };
 

@@ -2,6 +2,8 @@ export type AnyFunc = (...args: any[]) => any;
 
 export type NoInfer<T> = [T][T extends any ? 0 : never];
 
+export type Equal<T = any> = (a: T, b: T) => boolean;
+
 /**
  * Empty Object
  */
@@ -32,9 +34,7 @@ export type State<TValue, TParams = void> = {
 
   (params: TParams): TValue extends Promise<infer D> ? AsyncResult<D> : TValue;
 
-  distinct: (
-    equalFn: (a: TValue, b: TValue) => boolean,
-  ) => State<TValue, TParams>;
+  distinct: (equal: Equal<TValue>) => State<TValue, TParams>;
 
   /**
    * create an action/action map and handle state reducing whenever the action(s) dispatched
@@ -143,6 +143,8 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     ? AsyncResult<D>
     : TReturn;
 
+  once: () => Action<TData, TPayload, TReturn>;
+
   pipe: {
     <R1>(f1: (p: Listenable<TData>) => R1): R1;
 
@@ -197,9 +199,7 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    */
   cancel: () => void;
 
-  distinct: (
-    equalFn: (a: TPayload, b: TPayload) => boolean,
-  ) => Action<TData, TPayload, TReturn>;
+  distinct: (equal: Equal<TPayload>) => Action<TData, TPayload, TReturn>;
 
   last: () => TData | null;
 };

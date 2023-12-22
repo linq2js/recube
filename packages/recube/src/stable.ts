@@ -24,23 +24,34 @@ export const stableCallbackMap = () => {
   };
 };
 
-export const useStable = <T extends Record<string, AnyFunc>>(
-  callbacks: T,
-): T => {
-  const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+export type UseStable = {
+  <T extends Record<string, AnyFunc>>(callbacks: T): T;
+
+  <T>(init: () => T): T;
+};
+
+export const useStable: UseStable = (
+  input: Record<string, AnyFunc> | AnyFunc,
+): any => {
+  const inputRef = useRef(typeof input === 'function' ? {} : input);
+  inputRef.current = typeof input === 'function' ? {} : input;
+
   return useState(() => {
+    if (typeof input === 'function') {
+      return input();
+    }
+
     const callbackMap = stableCallbackMap();
-    return new Proxy(callbacksRef.current, {
+    return new Proxy(inputRef.current, {
       get(_, name) {
         if (
           typeof name !== 'string' ||
-          typeof callbacksRef.current[name] !== 'function'
+          typeof inputRef.current[name] !== 'function'
         ) {
           return undefined;
         }
         return callbackMap.get(name, (...args: any[]) =>
-          callbacksRef.current[name]?.(...args),
+          inputRef.current[name]?.(...args),
         );
       },
     });

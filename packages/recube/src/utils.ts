@@ -26,3 +26,7 @@ export function curry<T extends any[], R>(
     }
   } as CurriedFunction<T, R>;
 }
+
+export const isObject = (value: any) => {
+  return typeof value === 'object' && value;
+};

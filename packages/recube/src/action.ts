@@ -12,7 +12,7 @@ export type ExtraActions<TPayload> = {
   loading: Action<{ payload: TPayload }, void>;
 
   /**
-   * this action will be dispatched whenerver the action body throws an error or returns rejected promise object
+   * this action will be dispatched whenever the action body throws an error or returns rejected promise object
    */
   failed: Action<{ payload: TPayload; error: unknown }, void>;
 };
@@ -47,13 +47,30 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   let resultState: State<any, void> | undefined;
   let equalFn: AnyFunc | undefined;
   // keep last result for late use with resultState
-  let lastResult: any;
-  const called = { payload: null as any, count: 0 };
+  const callInfo = {
+    /**
+     * last payload
+     */
+    payload: null as any,
+    /**
+     * last result
+     */
+    result: undefined as any,
+    /**
+     * number of body dispatching
+     */
+    count: 0,
+    /**
+     * indicate whether wrapper is dispatched or not
+     */
+    dispatched: false,
+    once: false,
+  };
 
   const getResultState = () => {
     if (!resultState) {
       changeResultAction = action<ActionData>();
-      resultState = state(lastResult, { name: '#ACTION_RESULT' });
+      resultState = state(callInfo.result, { name: '#ACTION_RESULT' });
       resultState.when(changeResultAction, (_, result) => {
         if (result.type === 'error') {
           throw result.data;
@@ -67,7 +84,7 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   const context: ActionMiddlewareContext = {
     data: {},
     called() {
-      return called.count;
+      return callInfo.count;
     },
     calling: DEFAULT_CALLING,
     cancel: NOOP,
@@ -91,8 +108,8 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     ac?.throwIfCancelled();
     let cancelled = false;
     let calling = true;
-    called.payload = payload;
-    called.count++;
+    callInfo.payload = payload;
+    callInfo.count++;
     updateContext({
       calling: DEFAULT_CALLING,
       cancel() {
@@ -157,19 +174,22 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
 
     return result;
   };
-
   const instance = Object.assign(
     (...args: any[]) => {
-      const payload = args[0];
+      if (callInfo.once && callInfo.dispatched) {
+        return callInfo.result;
+      }
 
+      const payload = args[0];
+      callInfo.dispatched = true;
       // when distinct mode enabled, skip dispatching if previous payload is equal to current payload
-      if (equalFn && called.count && equalFn(payload, called.payload)) {
-        return lastResult;
+      if (equalFn && callInfo.count && equalFn(payload, callInfo.payload)) {
+        return callInfo.result;
       }
 
       if (!middleware.length) {
-        lastResult = dispatch(...args);
-        return lastResult;
+        callInfo.result = dispatch(...args);
+        return callInfo.result;
       }
 
       const wrappedDispatch = middleware.reduceRight(
@@ -193,10 +213,10 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       failed: undefined as any,
       on: onDispatch.on,
       called() {
-        return called.count;
+        return callInfo.count;
       },
       payload() {
-        return called.count ? called.payload : null;
+        return callInfo.count ? callInfo.payload : null;
       },
       cancel: NOOP,
       calling: DEFAULT_CALLING,
@@ -214,7 +234,11 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
         return instance;
       },
       last() {
-        return called.count ? called.payload : null;
+        return callInfo.count ? callInfo.payload : null;
+      },
+      once() {
+        callInfo.once = true;
+        return instance;
       },
     },
   );

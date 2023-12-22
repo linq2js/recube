@@ -1,5 +1,5 @@
 import { canceler } from './canceler';
-import { stateInterceptor } from './intercept';
+import { changeWatcher } from './changeWatcher';
 import { AnyFunc, AsyncResult, Awaitable, Loadable, State } from './types';
 
 export type WaitResult<T, TLoadable extends boolean> = TLoadable extends true
@@ -61,11 +61,11 @@ export const wait: Wait = (
   onResolve?: AnyFunc,
   onReject?: AnyFunc,
 ) => {
-  const interceptor = stateInterceptor.current();
+  const interceptor = changeWatcher.current();
   const co = canceler.current();
   const wrap = <T extends AnyFunc>(fn: T) => {
     return (...args: Parameters<T>) => {
-      const [, result] = stateInterceptor.wrap(() => fn(...args), interceptor);
+      const [, result] = changeWatcher.wrap(() => fn(...args), interceptor);
       return result;
     };
   };
@@ -136,7 +136,7 @@ const createWait =
       if (useLoadable) {
         if (result.loading) {
           // tell current context should listen async result change event
-          stateInterceptor.current()?.addListenable(result);
+          changeWatcher.current()?.addListenable(result);
         }
 
         return result;

@@ -1,18 +1,27 @@
-import { stateInterceptor } from './intercept';
+import { changeWatcher } from './changeWatcher';
 
 export type EffectContext = {
   /**
-   * indicate number of effect running
+   * number of effect run
    */
   readonly count: number;
 };
 
-export const effect = (fn: (context: EffectContext) => void): VoidFunction => {
+/**
+ *
+ * @param fn
+ * @returns
+ */
+export const effect = (
+  fn: (context: EffectContext) => void | VoidFunction,
+): VoidFunction => {
   let unwatch: VoidFunction | undefined;
+  let dispose: VoidFunction | undefined;
   const context = { count: 0 };
   const runEffect = () => {
     unwatch?.();
-    const [{ watch }] = stateInterceptor.wrap(() => fn(context));
+    const [{ watch }, result] = changeWatcher.wrap(() => fn(context));
+    dispose = typeof result === 'function' ? result : undefined;
     context.count++;
     unwatch = watch(runEffect);
   };
@@ -21,5 +30,6 @@ export const effect = (fn: (context: EffectContext) => void): VoidFunction => {
 
   return () => {
     unwatch?.();
+    dispose?.();
   };
 };

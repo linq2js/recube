@@ -8,11 +8,11 @@ Recube is a state management library designed for React applications. It offers 
 
 ## Features
 
-## Principles
+## Core Concepts
 
-- State Mutability: The state can only mutate itself by listening to dispatched actions.
-- Action-Driven: Complex data fetching and processing are handled in actions, keeping the state management simple and predictable.
-- Optimized Rendering: Cubes handle the rendering logic, ensuring high performance and optimized updates.
+- State: The `State` listens to the `Action`'s dispatching and changes its own value
+- Cube: The `Cube` renders connected state values and reactive when connected states have any change.
+- Action: The `Action` can be dispatched anywhere including: UI components, other actions, normal code block
 
 ### Actions
 

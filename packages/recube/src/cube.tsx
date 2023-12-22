@@ -8,8 +8,26 @@ import {
   useRef,
   useState,
 } from 'react';
-import { stateInterceptor } from './intercept';
+import { changeWatcher } from './changeWatcher';
 import { stableCallbackMap } from './stable';
+
+let propsChangeOptimizationEnabled = true;
+
+export type PropsChangeOptimizationAccessor = {
+  (): boolean;
+  (value: boolean): void;
+};
+
+export const propsChangeOptimization: PropsChangeOptimizationAccessor = (
+  value?: boolean,
+): any => {
+  if (typeof value === 'undefined') {
+    return propsChangeOptimizationEnabled;
+  }
+
+  propsChangeOptimizationEnabled = value;
+  return undefined;
+};
 
 export const cube = <P extends Record<string, any>>(
   render: (props: P) => ReactElement,
@@ -23,7 +41,6 @@ export const cube = <P extends Record<string, any>>(
   const Inner = memo((props: P & { __container: ContainerInfo }) => {
     const container = props.__container;
     const rerender = useState<any>()[1];
-    const [onDispose] = useState(() => new Set<VoidFunction>());
     const unwatchRef = useRef<VoidFunction>();
 
     container.propUsages.clear();
@@ -31,11 +48,10 @@ export const cube = <P extends Record<string, any>>(
 
     unwatchRef.current?.();
 
-    const [{ watch, disposableList }, result] = stateInterceptor.wrap(() =>
+    const [{ watch }, result] = changeWatcher.wrap(() =>
       render(container.propsProxy),
     );
 
-    disposableList.forEach(x => onDispose.add(x));
     container.rendering = false;
 
     unwatchRef.current = watch(() => {
@@ -48,9 +64,8 @@ export const cube = <P extends Record<string, any>>(
     useEffect(
       () => () => {
         unwatchRef.current?.();
-        onDispose.forEach(x => x());
       },
-      [onDispose],
+      [],
     );
 
     return result;
@@ -119,6 +134,13 @@ export const cube = <P extends Record<string, any>>(
       });
 
       currentRef.current = { ref, props };
+
+      if (!propsChangeOptimizationEnabled) {
+        return createElement(Inner, {
+          ...(props as any),
+          __container: container,
+        });
+      }
 
       // if the inner component has no prop accessor, just return previous render result
       if (renderResultRef.current && !container.propUsages.size) {

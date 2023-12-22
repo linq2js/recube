@@ -1,6 +1,7 @@
 import { action } from './action';
 import { delay, waitAll, waitAny, waitNone } from './async';
-import { state, mutate } from './state';
+import { state } from './state';
+import { withResult, alter } from './alter';
 
 export const checkTypes = {
   action: {
@@ -15,7 +16,7 @@ export const checkTypes = {
       },
     ],
   },
-  state: {
+  mutate: {
     mutate: [
       () => {
         const addTodo = action(async (title: string) => {
@@ -41,7 +42,7 @@ export const checkTypes = {
             ) as Promise<Todo[]>,
         ).when(
           addTodo,
-          mutate((draft, todo) => {
+          alter((draft, todo) => {
             draft.push(todo);
           }),
         );
@@ -49,6 +50,42 @@ export const checkTypes = {
         return { todosState };
       },
     ],
+    set: [
+      () => {
+        const changePage = action<number>();
+        const list = state({ page: 1, items: [] as any[] }).when(
+          changePage,
+          alter('page', withResult),
+        );
+
+        return { list };
+      },
+      () => {
+        const changePage = action<number>();
+        const list = state(async () => ({ page: 1, items: [] as any[] })).when(
+          changePage,
+          alter('page', (p, r) => p + r),
+        );
+
+        return { list };
+      },
+      () => {
+        const changePage = action<number>();
+        const list = state(async () => ({ info: { page: 1 } })).when(
+          changePage,
+          alter(
+            'info',
+            alter(prev => {
+              prev.page++;
+            }),
+          ),
+        );
+
+        return { list };
+      },
+    ],
+  },
+  state: {
     action: [
       () => {
         const count = state(0);

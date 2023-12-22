@@ -1,13 +1,10 @@
 import { equal } from '@wry/equality';
 import { AnyFunc, NoInfer } from './types';
+import { isObject } from './utils';
 
 export type Create<K, V> = (key: K) => V;
 
 export type WithCreateOptions<K, V> = { create: Create<K, V> };
-
-const isObject = (value: any) => {
-  return typeof value === 'object' && value;
-};
 
 export type MapOptions<K, V> = {
   onRemove?: (value: NoInfer<V>, key: NoInfer<K>) => void;
