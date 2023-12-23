@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
+    "outDir": "./dist/ts",
     "allowJs": true,
     "baseUrl": ".",
     "declaration": true,
-    "emitDeclarationOnly": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,

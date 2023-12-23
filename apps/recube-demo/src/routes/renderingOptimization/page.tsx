@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { action, cube, state, propsChangeOptimization } from 'recube';
+import { action, state } from 'recube';
+import { cube, propsChangeOptimization } from 'recube/react';
 import { Box } from '@/components/box';
 
 const log = action<string>();
@@ -110,7 +111,7 @@ const RenderPage = () => {
   return (
     <div className="container-box">
       <main>
-        <h1>Extreme Rendering Optimization</h1>
+        <h1>Rendering Optimization</h1>
         <div>
           <label>
             Enable Props Change Optimization{' '}

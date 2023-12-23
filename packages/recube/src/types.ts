@@ -29,6 +29,8 @@ export type Reducer<TValue, TParams, TData, TNext> = (
   context: StateContext<TParams>,
 ) => TNext;
 
+export type Combine<T, N> = T extends N ? (N extends T ? T : T | N) : T | N;
+
 export type State<TValue, TParams = void> = {
   type: 'state';
 
@@ -85,7 +87,10 @@ export type State<TValue, TParams = void> = {
     /**
      * listen specified event and mutate the state with event data
      */
-    <TData>(listenable: Listenable<TData>): State<TValue | TData, TParams>;
+    <TData>(listenable: Listenable<TData>): State<
+      Combine<TValue, TData>,
+      TParams
+    >;
 
     /**
      * listen specified event and mutate the state with result of reducer
@@ -93,7 +98,7 @@ export type State<TValue, TParams = void> = {
     <TData, TNext>(
       listenable: Listenable<TData>,
       reducer: Reducer<TValue, TParams, TData, TNext>,
-    ): State<TValue | TNext, TParams>;
+    ): State<Combine<TValue, TNext>, TParams>;
 
     // listen specified event and mark the state is staled
     <TData>(

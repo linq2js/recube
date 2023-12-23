@@ -4,6 +4,7 @@ import { asyncResult, isPromiseLike } from './async';
 import { state } from './state';
 import { NOOP } from './utils';
 import { canceler } from './canceler';
+import { lazyValue } from './lazyValue';
 
 export type ExtraActions<TPayload> = {
   /**
@@ -41,10 +42,22 @@ class ActionData {
 
 const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   const onDispatch = emitter<any>();
-  let changeResultAction: Action<ActionData, any> | undefined;
-  let loadingAction: Action<any, any> | undefined;
-  let failedAction: Action<any, any> | undefined;
-  let resultState: State<any, void> | undefined;
+  const changeResultAction = lazyValue(
+    () => create() as Action<ActionData, ActionData>,
+  );
+  const loadingAction = lazyValue(() => create() as Action<any, any>);
+  const failedAction = lazyValue(() => create() as Action<any, any>);
+  const resultState = lazyValue<State<any, void>>(() => {
+    return state(callInfo.result, { name: '#ACTION_RESULT' }).when(
+      changeResultAction.get(),
+      (_, result) => {
+        if (result.type === 'error') {
+          throw result.data;
+        }
+        return result.data;
+      },
+    );
+  });
   let equalFn: AnyFunc | undefined;
   // keep last result for late use with resultState
   const callInfo = {
@@ -65,20 +78,6 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
      */
     dispatched: false,
     once: false,
-  };
-
-  const getResultState = () => {
-    if (!resultState) {
-      changeResultAction = action<ActionData>();
-      resultState = state(callInfo.result, { name: '#ACTION_RESULT' });
-      resultState.when(changeResultAction, (_, result) => {
-        if (result.type === 'error') {
-          throw result.data;
-        }
-        return result.data;
-      });
-    }
-    return resultState;
   };
 
   const context: ActionMiddlewareContext = {
@@ -151,11 +150,11 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       result = asyncResult(wrappedPromise);
 
       wrappedPromise.catch(error => {
-        failedAction?.(error);
+        failedAction.peek()?.(error);
       });
 
       wrappedPromise.finally(nextAction);
-      loadingAction?.({ payload });
+      loadingAction.peek()?.({ payload });
     } else {
       try {
         onDispatch.emit(result);
@@ -165,11 +164,11 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     }
 
     if (error) {
-      changeResultAction?.(new ActionData(error, 'error'));
-      failedAction?.({ payload, error });
+      changeResultAction.peek()?.(new ActionData(error, 'error'));
+      failedAction.peek()?.({ payload, error });
       throw error;
     } else {
-      changeResultAction?.(new ActionData(result, 'result'));
+      changeResultAction.peek()?.(new ActionData(result, 'result'));
     }
 
     return result;
@@ -244,23 +243,9 @@ const create = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   );
 
   Object.defineProperties(instance, {
-    result: { get: getResultState },
-    failed: {
-      get() {
-        if (!failedAction) {
-          failedAction = create();
-        }
-        return failedAction;
-      },
-    },
-    loading: {
-      get() {
-        if (!loadingAction) {
-          loadingAction = create();
-        }
-        return loadingAction;
-      },
-    },
+    result: { get: resultState.get },
+    failed: { get: failedAction.get },
+    loading: { get: loadingAction.get },
   });
 
   return instance;

@@ -1,15 +1,35 @@
 {
   "name": "recube",
-  "version": "2.4.0",
-  "types": "./dist/types/index.d.ts",
-  "main": "./dist/lib/index.js",
-  "module": "./dist/es/index.js",
+  "version": "2.9.0",
+  "types": "dist/ts/index.d.ts",
+  "main": "dist/ts/index.js",
+  "files": [
+    "**"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "default": {
+        "types": "./dist/ts/index.d.ts",
+        "default": "./dist/ts/index.js"
+      }
+    },
+    "./react": {
+      "default": {
+        "types": "./dist/ts/react/index.d.ts",
+        "default": "./dist/ts/react/index.js"
+      }
+    },
+    "./next": {
+      "default": {
+        "types": "./dist/ts/next/index.d.ts",
+        "default": "./dist/ts/next/index.js"
+      }
+    }
+  },
   "scripts": {
-    "prepare": "modern build",
-    "build": "modern build",
-    "build:watch": "modern build -w",
-    "new": "modern new",
-    "upgrade": "modern upgrade",
+    "prepare": "yarn build",
+    "build": "tsc",
     "prepublish": "yarn test",
     "test": "jest --detectOpenHandles",
     "publish:minor": "npm version minor && npm publish",
@@ -23,7 +43,6 @@
     "react": "*"
   },
   "devDependencies": {
-    "@modern-js/module-tools": "2.42.1",
     "@modern-js/eslint-config": "2.42.1",
     "typescript": "~5.0.4",
     "@types/node": "~16.11.7",
@@ -38,9 +57,14 @@
     "@testing-library/react": "14.1.2",
     "@testing-library/react-hooks": "8.0.1",
     "jest-environment-jsdom": "29.7.0",
-    "react-error-boundary": "4.0.11"
+    "react-error-boundary": "4.0.11",
+    "rollup": "4.9.1",
+    "@rollup/plugin-typescript": "11.1.5",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-commonjs": "25.0.7",
+    "@rollup/plugin-multi-entry": "6.0.1"
   },
-  "sideEffects": [],
+  "sideEffects": false,
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

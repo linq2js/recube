@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { fireEvent, render } from '@testing-library/react';
-import { EO } from './types';
+import { EO } from '../types';
 
 describe('optimizing', () => {
   test('props object should be the same with previous rendering', () => {

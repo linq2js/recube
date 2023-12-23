@@ -1,8 +1,8 @@
 import { renderHook, act } from '@testing-library/react';
 import { equal } from '@wry/equality';
-import { state } from './state';
-import { action } from './action';
-import { useComputed } from './computed';
+import { state } from '../state';
+import { action } from '../action';
+import { useComputed } from './useComputed';
 
 describe('useComputed', () => {
   test('without equalFn', () => {

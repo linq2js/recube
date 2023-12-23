@@ -62,7 +62,7 @@ const createState = <T, P = void>(
       when(
         listenable: Listenable,
         options: StaleOptions<any, any> | AnyFunc = DEFAULT_REDUCER,
-      ) {
+      ): any {
         applyAll(({ when }) => when(listenable, options));
         return definition;
       },

@@ -1,4 +1,5 @@
-import { action, cube, state } from 'recube';
+import { action, state } from 'recube';
+import { cube } from 'recube/react';
 import { Box } from '@/components/box';
 
 const increment = action();

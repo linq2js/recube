@@ -1,5 +1,6 @@
 {
   "name": "recube-demo",
+  "private": true,
   "version": "0.1.0",
   "scripts": {
     "reset": "npx rimraf ./**/node_modules",
@@ -15,7 +16,8 @@
     "@modern-js/runtime": "2.42.1",
     "react": "~18.2.0",
     "react-dom": "~18.2.0",
-    "recube": "*"
+    "recube": "*",
+    "@wry/equality": "0.5.7"
   },
   "devDependencies": {
     "@modern-js/app-tools": "2.42.1",

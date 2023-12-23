@@ -30,3 +30,5 @@ export function curry<T extends any[], R>(
 export const isObject = (value: any) => {
   return typeof value === 'object' && value;
 };
+
+export const enqueue = Promise.resolve().then.bind(Promise.resolve());

@@ -1,5 +1,6 @@
 import { ChangeEvent, Suspense, useState } from 'react';
-import { action, canceler, cube, state, waitAll } from 'recube';
+import { action, canceler, state, waitAll } from 'recube';
+import { cube } from 'recube/react';
 
 export type Todo = {
   id: number;
@@ -39,7 +40,7 @@ const TodoInfo = cube(() => {
 const CancellablePage = () => (
   <div className="container-box">
     <main>
-      <h1>Cancellable Demo</h1>
+      <h1>Cancellable</h1>
       <blockquote>
         Open console to see cancelled requests. Each request has a delay of
         3000ms

@@ -4,9 +4,10 @@ export const useUnmount = (callback: VoidFunction) => {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       callbackRef.current();
-    };
-  }, []);
+    },
+    [],
+  );
 };

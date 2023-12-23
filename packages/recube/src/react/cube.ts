@@ -8,8 +8,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { changeWatcher } from './changeWatcher';
-import { stableCallbackMap } from './stable';
+import { changeWatcher } from '../changeWatcher';
+import { stableCallbackMap } from '../stable';
+import { NOOP, enqueue } from '../utils';
+import { SSR } from './next';
 
 let propsChangeOptimizationEnabled = true;
 
@@ -35,18 +37,19 @@ export const cube = <P extends Record<string, any>>(
   type ContainerInfo = {
     propUsages: Set<string>;
     propsProxy: P;
+    mounted: boolean;
     rendering: boolean;
   };
 
   const Inner = memo((props: P & { __container: ContainerInfo }) => {
     const container = props.__container;
     const rerender = useState<any>()[1];
-    const unwatchRef = useRef<VoidFunction>();
+    const unwatchRef = useRef<VoidFunction>(NOOP);
 
     container.propUsages.clear();
     container.rendering = true;
 
-    unwatchRef.current?.();
+    unwatchRef.current();
 
     const [{ watch }, result] = changeWatcher.wrap(() =>
       render(container.propsProxy),
@@ -61,12 +64,22 @@ export const cube = <P extends Record<string, any>>(
       rerender({});
     });
 
-    useEffect(
-      () => () => {
-        unwatchRef.current?.();
-      },
-      [],
-    );
+    useEffect(() => {
+      container.mounted = true;
+      return () => {
+        container.mounted = false;
+        if (SSR.enabled) {
+          enqueue(() => {
+            if (container.mounted) {
+              return;
+            }
+            unwatchRef.current();
+          });
+        } else {
+          unwatchRef.current();
+        }
+      };
+    }, []);
 
     return result;
   });
@@ -112,6 +125,7 @@ export const cube = <P extends Record<string, any>>(
           set rendering(value) {
             rendering = value;
           },
+          mounted: false,
           propsProxy: new Proxy({} as P, {
             get(_, prop) {
               return getPropValue(prop);

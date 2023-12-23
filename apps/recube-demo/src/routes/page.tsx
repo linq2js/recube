@@ -2,11 +2,12 @@ import { Link } from '@modern-js/runtime/router';
 
 const links = {
   '/counter': 'Counter',
-  '/render': 'Extreme Rendering Optimization',
+  '/renderingOptimization': 'Rendering Optimization',
   '/search': 'Search',
   '/todo': 'Todo',
   '/cancellable': 'Cancellable',
   '/conditionalDependency': 'Conditional Dependency',
+  '/distinct': 'Distinct',
 } as Record<string, string>;
 
 const IndexPage = () => (

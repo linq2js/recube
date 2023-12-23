@@ -1,13 +1,13 @@
 import { render, fireEvent, act } from '@testing-library/react';
 import { PropsWithChildren, Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { action } from '../action';
+import { state } from '../state';
+import { delay, waitAll, waitAny, waitNone } from '../async';
+import { swallowError } from '../testUtils';
+import { alter } from '../alter';
+import { computed } from '../computed';
 import { cube } from './cube';
-import { action } from './action';
-import { state } from './state';
-import { delay, waitAll, waitAny, waitNone } from './async';
-import { swallowError } from './testUtils';
-import { alter } from './alter';
-import { computed } from './computed';
 
 // swallow the React error boundary log
 swallowError(

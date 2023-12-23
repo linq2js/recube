@@ -1,4 +1,5 @@
-import { action, cube, state } from 'recube';
+import { action, state } from 'recube';
+import { cube } from 'recube/react';
 import { Box } from '@/components/box';
 
 type PriceType = 'discount' | 'origin';
@@ -56,7 +57,7 @@ const PriceTypeSection = cube(() => {
         <input
           type="checkbox"
           checked={priceType() === 'discount'}
-          onClick={() =>
+          onChange={() =>
             changePriceType(priceType() === 'discount' ? 'origin' : 'discount')
           }
         />
