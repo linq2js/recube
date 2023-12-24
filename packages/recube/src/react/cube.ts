@@ -55,7 +55,7 @@ export const cube = <P extends Record<string, any>>(
     container.rendering = false;
     let hasChangeDuringRendering = false;
     unwatchRef.current = watch(() => {
-      if (!hasChangeDuringRendering) {
+      if (container.rendering && !hasChangeDuringRendering) {
         hasChangeDuringRendering = true;
         return;
       }
