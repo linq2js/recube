@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { changeWatcher } from '../changeWatcher';
 import { stableCallbackMap } from '../stable';
+import { NOOP } from '..';
 
 let propsChangeOptimizationEnabled = true;
 
@@ -42,6 +43,7 @@ export const cube = <P extends Record<string, any>>(
   const Inner = memo((props: P & { __container: ContainerInfo }) => {
     const container = props.__container;
     const rerender = useState<any>()[1];
+    const unwatchRef = useRef(NOOP);
 
     container.propUsages.clear();
     container.rendering = true;
@@ -51,14 +53,25 @@ export const cube = <P extends Record<string, any>>(
     );
 
     container.rendering = false;
+    let hasChangeDuringRendering = false;
+    unwatchRef.current = watch(() => {
+      if (!hasChangeDuringRendering) {
+        hasChangeDuringRendering = true;
+        return;
+      }
+      rerender({});
+    });
 
     useEffect(() => {
       container.rendering = false;
-      return watch(() => {
-        if (container.rendering) {
-          return;
-        }
+      if (hasChangeDuringRendering) {
+        unwatchRef.current();
         rerender({});
+        return NOOP;
+      }
+
+      return watch(() => {
+        unwatchRef.current();
       });
     });
 

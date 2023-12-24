@@ -11,5 +11,4 @@ export * from './listenable';
 export * from './objectKeyedMap';
 export * from './alter';
 export * from './memoize';
-export * from './react/next';
 export { state } from './state';

@@ -1,7 +1,7 @@
 'use client';
 
 import { action, state } from 'recube';
-import { cube } from 'recube/next';
+import { cube } from 'recube/react';
 
 const increment = action();
 const count = state(1).when(increment, prev => prev + 1);
