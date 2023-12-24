@@ -19,12 +19,6 @@
         "types": "./dist/ts/react/index.d.ts",
         "default": "./dist/ts/react/index.js"
       }
-    },
-    "./next": {
-      "default": {
-        "types": "./dist/ts/next/index.d.ts",
-        "default": "./dist/ts/next/index.js"
-      }
     }
   },
   "scripts": {
