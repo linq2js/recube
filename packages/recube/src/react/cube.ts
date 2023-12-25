@@ -128,13 +128,13 @@ export const cube = <P extends Record<string, any>>(
               return prop in currentRef.current.props;
             },
             ownKeys(_) {
-              return [...Reflect.ownKeys(currentRef.current.props), 'a', 'b'];
+              return [...Reflect.ownKeys(currentRef.current.props)];
             },
             getOwnPropertyDescriptor(_, key) {
               return {
                 value: getPropValue(key),
                 enumerable: true,
-                configurable: false,
+                configurable: true,
               };
             },
           }),

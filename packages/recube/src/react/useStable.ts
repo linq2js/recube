@@ -1,45 +1,75 @@
-import { useEffect, useRef, useState } from 'react';
-import { AnyFunc } from '../types';
+import { MutableRefObject, useEffect, useRef, useState } from 'react';
+import { AnyFunc, NoInfer } from '../types';
 import { stableCallbackMap } from '../stable';
 import { NOOP } from '..';
 import { disposableScope } from '@/disposableScope';
 
 export type UseStable = {
-  <T extends Record<string, AnyFunc>>(callbacks: T): T;
+  <C extends Record<string, AnyFunc>>(callbacks: C): C;
+  <T, C extends Record<string, AnyFunc>>(
+    callbacks: C,
+    init: (callbacks: NoInfer<C>) => T,
+  ): T;
 
   <T>(init: () => T): T;
 };
 
-export const useStable: UseStable = (
-  input: Record<string, AnyFunc> | AnyFunc,
-): any => {
-  const inputRef = useRef(typeof input === 'function' ? {} : input);
+const createCallbackProxy = (
+  callbacksRef: MutableRefObject<Record<string, AnyFunc>>,
+) => {
+  const callbackMap = stableCallbackMap();
+  const getCallback = (name: string | number | symbol) => {
+    if (
+      typeof name !== 'string' ||
+      typeof callbacksRef.current[name] !== 'function'
+    ) {
+      return undefined;
+    }
+    return callbackMap.get(name, (...args: any[]) =>
+      callbacksRef.current[name]?.(...args),
+    );
+  };
+  const proxy = new Proxy(callbacksRef.current, {
+    get(_, name) {
+      return getCallback(name);
+    },
+    ownKeys(_) {
+      return [...Reflect.ownKeys(callbacksRef.current)];
+    },
+    getOwnPropertyDescriptor(_, key) {
+      return {
+        value: getCallback(key),
+        enumerable: true,
+        configurable: true,
+      };
+    },
+  });
+
+  return proxy;
+};
+
+export const useStable: UseStable = (...args: any[]): any => {
+  const inputRef = useRef(typeof args[0] === 'function' ? {} : args[0]);
   const disposeRef = useRef(NOOP);
-  inputRef.current = typeof input === 'function' ? {} : input;
+  inputRef.current = typeof args[0] === 'function' ? {} : args[0];
 
   const [result] = useState(() => {
-    if (typeof input === 'function') {
-      const [{ dispose }, result] = disposableScope.wrap(input);
+    if (typeof args[0] === 'function') {
+      const init = args[0] as AnyFunc;
+      const [{ dispose }, result] = disposableScope.wrap(init);
       disposeRef.current = dispose;
       return result;
     }
 
-    const callbackMap = stableCallbackMap();
-    const proxy = new Proxy(inputRef.current, {
-      get(_, name) {
-        if (
-          typeof name !== 'string' ||
-          typeof inputRef.current[name] !== 'function'
-        ) {
-          return undefined;
-        }
-        return callbackMap.get(name, (...args: any[]) =>
-          inputRef.current[name]?.(...args),
-        );
-      },
-    });
+    if (typeof args[1] === 'function') {
+      const proxy = createCallbackProxy(inputRef);
+      const init = args[1] as AnyFunc;
+      const [{ dispose }, result] = disposableScope.wrap(() => init(proxy));
+      disposeRef.current = dispose;
+      return result;
+    }
 
-    return proxy;
+    return createCallbackProxy(inputRef);
   });
 
   useEffect(() => {

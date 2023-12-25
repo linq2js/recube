@@ -27,10 +27,14 @@ export type StateInstance = {
 
 const DEFAULT_REDUCER = (_: any, result: any) => result;
 
-export const createState = <E extends Record<string, any>, T, P>(
-  enhancer: (state: MutableState<T, P>) => E,
+export const createState = <
+  T,
+  P,
+  E extends Record<string, any> = Record<string, never>,
+>(
   init: T | ((params: P) => T),
   _: StateOptions = {},
+  enhancer?: (state: MutableState<T, P>) => E,
 ): E & MutableState<T, P> => {
   const instances = objectKeyedMap({
     create: (params: P) => {
@@ -103,7 +107,7 @@ export const createState = <E extends Record<string, any>, T, P>(
 
   disposableScope.current()?.onDispose(definition.wipe);
 
-  return Object.assign(definition, enhancer(definition));
+  return Object.assign(definition, enhancer?.(definition));
 };
 
 const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {

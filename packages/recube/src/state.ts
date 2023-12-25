@@ -51,34 +51,30 @@ export const state = <T, P = void>(
   init: T | ((params: P) => T),
   stateOptions?: StateOptions,
 ) => {
-  return createState(
-    (state): EnhancedState<T, P> => {
-      return {
-        action(
-          options:
-            | StaleOptions<any, any>
-            | AnyFunc
-            | Record<string, AnyFunc | StaleOptions<any, any>>,
-        ): any {
-          // single action
-          if (typeof options === 'function' || 'stale' in options) {
-            const action = createAction<any>();
-            state.when(action, options as any);
-            return action;
-          }
+  return createState(init, stateOptions, (state): EnhancedState<T, P> => {
+    return {
+      action(
+        options:
+          | StaleOptions<any, any>
+          | AnyFunc
+          | Record<string, AnyFunc | StaleOptions<any, any>>,
+      ): any {
+        // single action
+        if (typeof options === 'function' || 'stale' in options) {
+          const action = createAction<any>();
+          state.when(action, options as any);
+          return action;
+        }
 
-          // multiple actions
-          const actions = {} as Record<string, AnyFunc>;
-          Object.entries(options).forEach(([key, value]) => {
-            const action = createAction<any>();
-            state.when(action, value as any);
-            actions[key] = action;
-          });
-          return actions;
-        },
-      };
-    },
-    init,
-    stateOptions,
-  );
+        // multiple actions
+        const actions = {} as Record<string, AnyFunc>;
+        Object.entries(options).forEach(([key, value]) => {
+          const action = createAction<any>();
+          state.when(action, value as any);
+          actions[key] = action;
+        });
+        return actions;
+      },
+    };
+  });
 };
