@@ -1,6 +1,6 @@
 {
   "name": "recube",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "types": "dist/ts/index.d.ts",
   "main": "dist/ts/index.js",
   "files": [
@@ -26,6 +26,7 @@
     "build": "tsc",
     "prepublish": "yarn test",
     "test": "jest --detectOpenHandles",
+    "publish:patch": "npm version patch && npm publish",
     "publish:minor": "npm version minor && npm publish",
     "publish:major": "npm version major && npm publish"
   },
