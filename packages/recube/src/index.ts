@@ -1,7 +1,6 @@
 export * from './types';
 export * from './action';
 export * from './effect';
-export * from './computed';
 export * from './middleware';
 export * from './async';
 export * from './utils';

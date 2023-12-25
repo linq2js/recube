@@ -5,7 +5,7 @@ import { AnyFunc } from './types';
 export type LazyValueState = 'unset' | 'error' | 'ready';
 
 export type LazyValue<T> = {
-  get: () => T;
+  (): T;
   status: () => LazyValueState;
   peek: () => T | undefined;
   error: () => any;
@@ -35,14 +35,8 @@ export const lazyValue: CreateLazyValue = (creator: AnyFunc) => {
     }
   };
 
-  return {
-    error() {
-      return cache?.type === 'error' ? cache.value : undefined;
-    },
-    status() {
-      return cache?.type || 'unset';
-    },
-    get() {
+  return Object.assign(
+    () => {
       if (!cache) {
         try {
           unwatch?.();
@@ -61,9 +55,17 @@ export const lazyValue: CreateLazyValue = (creator: AnyFunc) => {
 
       return result;
     },
-    reset,
-    peek() {
-      return cache && getResult();
+    {
+      error() {
+        return cache?.type === 'error' ? cache.value : undefined;
+      },
+      status() {
+        return cache?.type || 'unset';
+      },
+      reset,
+      peek() {
+        return cache && getResult();
+      },
     },
-  };
+  );
 };

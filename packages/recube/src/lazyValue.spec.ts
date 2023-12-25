@@ -9,21 +9,21 @@ describe('lazyValue', () => {
     const lazyB = lazyValue(() => bPossibles.shift() ?? 0);
     const lazySum = lazyValue(() => {
       log();
-      return lazyA.get() + lazyB.get();
+      return lazyA() + lazyB();
     });
 
-    expect(lazySum.get()).toBe(5);
-    expect(lazySum.get()).toBe(5);
+    expect(lazySum()).toBe(5);
+    expect(lazySum()).toBe(5);
     expect(log).toHaveBeenCalledTimes(1);
 
     lazyA.reset();
-    expect(lazySum.get()).toBe(6);
-    expect(lazySum.get()).toBe(6);
+    expect(lazySum()).toBe(6);
+    expect(lazySum()).toBe(6);
     expect(log).toHaveBeenCalledTimes(2);
 
     lazyB.reset();
-    expect(lazySum.get()).toBe(7);
-    expect(lazySum.get()).toBe(7);
+    expect(lazySum()).toBe(7);
+    expect(lazySum()).toBe(7);
     expect(log).toHaveBeenCalledTimes(3);
   });
 });

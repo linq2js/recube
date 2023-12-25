@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react';
-import { batchScope } from '../batchScope';
 
 const DEFAULT_STATE = {};
 
@@ -9,12 +8,7 @@ export const useRerender = (onRerender?: VoidFunction) => {
   onRerenderRef.current = onRerender;
 
   return useCallback(() => {
-    const innerRerender = () => {
-      rerender({});
-      onRerenderRef.current?.();
-    };
-    if (!batchScope.current()?.addUpdater(innerRerender)) {
-      innerRerender();
-    }
+    rerender({});
+    onRerenderRef.current?.();
   }, [rerender]);
 };

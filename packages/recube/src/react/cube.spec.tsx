@@ -6,7 +6,6 @@ import { state } from '../state';
 import { delay, waitAll, waitAny, waitNone } from '../async';
 import { swallowError } from '../testUtils';
 import { alter } from '../alter';
-import { computed } from '../computed';
 import { cube } from './cube';
 
 // swallow the React error boundary log
@@ -245,39 +244,6 @@ describe('rendering', () => {
 
     act(() => doSomething(2));
 
-    getByText('2');
-  });
-});
-
-describe('local state', () => {
-  test('#1', () => {
-    const increment = action();
-    const rerender = jest.fn();
-    const factor = state(1);
-    const count = state(0).when(increment, prev => prev + 1);
-    const Comp = cube(() => {
-      rerender();
-      const divBy5 = computed(() => factor() * Math.floor(count() / 5));
-      return <div>{divBy5}</div>;
-    });
-    const { getByText } = render(<Comp />);
-    expect(rerender).toHaveBeenCalledTimes(1);
-    getByText('0');
-
-    act(increment);
-    act(increment);
-    act(increment);
-    act(increment);
-    act(increment);
-    expect(rerender).toHaveBeenCalledTimes(2);
-    getByText('1');
-
-    act(increment);
-    act(increment);
-    act(increment);
-    act(increment);
-    act(increment);
-    expect(rerender).toHaveBeenCalledTimes(3);
     getByText('2');
   });
 });

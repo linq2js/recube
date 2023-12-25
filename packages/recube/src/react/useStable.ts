@@ -11,6 +11,9 @@ export type UseStable = {
     init: (callbacks: NoInfer<C>) => T,
   ): T;
 
+  /**
+   * call init function once and return the init result
+   */
   <T>(init: () => T): T;
 };
 

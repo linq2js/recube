@@ -113,7 +113,7 @@ const App = () => {
 - Support async actions and states
 - Including a lot of component rendering optimizing
 - Support action middleware to control action dispatching flow in various ways
-- Free from React hooks (useEffect, useCallback, useMemo), thus circumventing issues related to hook dependencies.
+- Free from React hooks (useEffect, useCallback, useMemo, useRef), thus circumventing issues related to hook dependencies.
 - No binding hooks needed and support condition binding
 
 ### Why `recube` over context?

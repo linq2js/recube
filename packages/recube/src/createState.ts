@@ -5,6 +5,7 @@ import {
   Listener,
   MutableState,
   StateOptions,
+  EO,
 } from './types';
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
@@ -27,11 +28,7 @@ export type StateInstance = {
 
 const DEFAULT_REDUCER = (_: any, result: any) => result;
 
-export const createState = <
-  T,
-  P,
-  E extends Record<string, any> = Record<string, never>,
->(
+export const createState = <T, P, E extends Record<string, any> = EO>(
   init: T | ((params: P) => T),
   _: StateOptions = {},
   enhancer?: (state: MutableState<T, P>) => E,

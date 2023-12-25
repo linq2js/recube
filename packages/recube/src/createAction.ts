@@ -34,7 +34,7 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   const resultState = lazyValue<State<any, void>>(() => {
     const [{ dispose }, result] = disposableScope.wrap(() =>
       createState<any, void>(callInfo.result, { name: '#ACTION_RESULT' }).when(
-        changeResultAction.get(),
+        changeResultAction(),
         (_, result) => {
           if (result.type === 'error') {
             throw result.data;
@@ -231,9 +231,9 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
   );
 
   Object.defineProperties(instance, {
-    result: { get: resultState.get },
-    failed: { get: failedAction.get },
-    loading: { get: loadingAction.get },
+    result: { get: resultState },
+    failed: { get: failedAction },
+    loading: { get: loadingAction },
   });
 
   disposableScope.current()?.onDispose(onDispose.emit);
