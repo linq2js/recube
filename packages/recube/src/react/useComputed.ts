@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { effect } from '../effect';
 import { Equal, NoInfer } from '../types';
+import { useRerender } from './useRerender';
 
 export const useComputed = <T>(
   fn: () => T,
   equal: Equal<NoInfer<T>> = Object.is,
 ): T => {
-  const rerender = useState({})[1];
+  const rerender = useRerender();
   const unwatchRef = useRef<VoidFunction>();
   const prevRef = useRef<any>();
   const handleEffect = () => {
@@ -22,7 +23,7 @@ export const useComputed = <T>(
         prevRef.current = next;
       } else if (!equal(prevRef.current, next)) {
         prevRef.current = next;
-        rerender({});
+        rerender();
       }
     });
   };

@@ -11,4 +11,5 @@ export * from './listenable';
 export * from './objectKeyedMap';
 export * from './alter';
 export * from './memoize';
+export { batch } from './batchScope';
 export { state } from './state';

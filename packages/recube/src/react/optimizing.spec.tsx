@@ -1,13 +1,14 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { EO } from '../types';
+import { useRerender } from './useRerender';
 
 describe('optimizing', () => {
   test('props object should be the same with previous rendering', () => {
     const log = jest.fn();
     const Comp = (props: EO) => {
       const propsRef = useRef<any>();
-      const rerender = useState({})[1];
+      const rerender = useRerender();
 
       if (propsRef.current) {
         log(propsRef.current === props);
@@ -15,7 +16,7 @@ describe('optimizing', () => {
 
       propsRef.current = props;
 
-      return <div onClick={() => rerender({})}>rerender</div>;
+      return <div onClick={rerender}>rerender</div>;
     };
 
     const { rerender, getByText } = render(<Comp />);

@@ -6,6 +6,7 @@ import { canceler } from './canceler';
 import { lazyValue } from './lazyValue';
 import { disposableScope } from './disposableScope';
 import { createState } from './createState';
+import { batch } from './batchScope';
 
 const DEFAULT_CALLING = () => false;
 
@@ -105,7 +106,7 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     let result: any;
     let error: any;
     try {
-      result = body ? body(payload) : payload;
+      result = body ? batch(() => body(payload)) : payload;
     } catch (ex) {
       error = ex;
     }

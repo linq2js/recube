@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { action, state } from 'recube';
-import { cube, propsChangeOptimization } from 'recube/react';
+import { cube, propsChangeOptimization, useRerender } from 'recube/react';
 import { Box } from '@/components/box';
 
 const log = action<string>();
@@ -65,7 +65,7 @@ const ReRenderIfNonFunctionPropsChanged = cube(
 
 const Parent = () => {
   const [count, setCount] = useState(1);
-  const rerender = useState({})[1];
+  const rerender = useRerender();
   // every time the Parent component re-renders, the `callback` is new
   const callback = () => (window as any).alert(count);
 
@@ -85,7 +85,7 @@ const Parent = () => {
     >
       <strong>Parent component</strong>
       <div>
-        <button onClick={() => rerender({})}>Re-render</button>
+        <button onClick={rerender}>Re-render</button>
         <button onClick={() => setCount(count + 1)}>
           Change count {count}
         </button>

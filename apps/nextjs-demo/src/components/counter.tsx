@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { action, state } from 'recube';
-import { cube } from 'recube/react';
+import { cube, useRerender } from 'recube/react';
 
 // create an simple action with no body and retrieves no parameter
 const increment = action();
@@ -51,11 +50,11 @@ const CounterActions = cube(() => {
 });
 
 export const Counter = () => {
-  const rerender = useState({})[1];
+  const rerender = useRerender();
 
   return (
     <>
-      <button onClick={() => rerender({})}>Rerender</button>
+      <button onClick={rerender}>Rerender</button>
       <CounterValue />
       <CounterActions />
     </>
