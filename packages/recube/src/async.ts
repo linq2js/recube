@@ -61,11 +61,11 @@ export const wait: Wait = (
   onResolve?: AnyFunc,
   onReject?: AnyFunc,
 ) => {
-  const interceptor = changeWatcher.current();
+  const watcher = changeWatcher.current();
   const co = canceler.current();
   const wrap = <T extends AnyFunc>(fn: T) => {
     return (...args: Parameters<T>) => {
-      const [, result] = changeWatcher.wrap(() => fn(...args), interceptor);
+      const [, result] = changeWatcher.wrap(() => fn(...args), watcher);
       return result;
     };
   };

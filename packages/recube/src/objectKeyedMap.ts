@@ -1,6 +1,5 @@
-import { equal } from '@wry/equality';
+import { equal, isObject } from './utils';
 import { AnyFunc, NoInfer } from './types';
-import { isObject } from './utils';
 
 export type Create<K, V> = (key: K) => V;
 

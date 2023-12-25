@@ -1,6 +1,5 @@
-import { equal } from '@wry/equality';
 import { useEffect } from 'react';
-import { action, state } from 'recube';
+import { equal, action, state } from 'recube';
 import { cube } from 'recube/react';
 
 const incrementOnChange = action<number>();

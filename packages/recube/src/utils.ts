@@ -32,3 +32,24 @@ export const isObject = (value: any) => {
 };
 
 export const enqueue = Promise.resolve().then.bind(Promise.resolve());
+
+/**
+ * perform shallowing comparison for 2 values
+ * @param a
+ * @param b
+ * @returns
+ */
+export const shallow = (a: any, b: any) => {
+  if (a === b) {
+    return true;
+  }
+  if (!isObject(a) || !isObject(b)) {
+    return false;
+  }
+
+  const keys = Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
+
+  return keys.every(key => a[key] === b[key]);
+};
+
+export { equal } from '@wry/equality';

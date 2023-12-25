@@ -31,57 +31,21 @@ export type Reducer<TValue, TParams, TData, TNext> = (
 
 export type Combine<T, N> = T extends N ? (N extends T ? T : T | N) : T | N;
 
+export type MutableState<TValue, TParams = void> = State<TValue, TParams> & {
+  set: (
+    valueOrReducer:
+      | TValue
+      | ((prev: TValue, context: StateContext<TParams>) => TValue),
+    params: TParams,
+  ) => void;
+};
+
 export type State<TValue, TParams = void> = {
   type: 'state';
 
   (params: TParams): TValue extends Promise<infer D> ? AsyncResult<D> : TValue;
 
   distinct: (equal: Equal<TValue>) => State<TValue, TParams>;
-
-  /**
-   * create an action/action map and handle state reducing whenever the action(s) dispatched
-   */
-  action: {
-    (options: StaleOptions<TValue, void>): Action;
-
-    <TPayload>(
-      reducer: Reducer<
-        TValue,
-        TParams,
-        TPayload,
-        TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
-      >,
-    ): Action<TPayload>;
-
-    <
-      TReducers extends Record<
-        string,
-        | Reducer<
-            TValue,
-            TParams,
-            any,
-            TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
-          >
-        | StaleOptions<TValue, any>
-      >,
-    >(
-      reducers: TReducers,
-    ): {
-      [key in keyof TReducers]: TReducers[key] extends
-        | (() => any)
-        | ((value: any) => any)
-        ? Action<void>
-        : TReducers[key] extends (
-            value: any,
-            result: infer TPayload,
-            ...args: any[]
-          ) => TValue extends PromiseLike<infer D> ? D | PromiseLike<D> : TValue
-        ? Action<TPayload, TPayload, TPayload>
-        : TReducers[key] extends StaleOptions<TValue, infer TData>
-        ? Action<TData, TData, TData>
-        : never;
-    };
-  };
 
   when: {
     /**
@@ -242,3 +206,33 @@ export type ImmutableType =
   | Date
   | symbol
   | RegExp;
+
+export type StateOptions = {
+  name?: string;
+};
+
+export type CreateState = <T, P = void>(
+  init: ((params: P) => T) | T,
+  options?: StateOptions,
+) => MutableState<T, P>;
+
+export type ExtraActions<TPayload> = {
+  /**
+   * this action will be dispatched whenever the action body returns promise object
+   */
+  loading: Action<{ payload: TPayload }, void>;
+
+  /**
+   * this action will be dispatched whenever the action body throws an error or returns rejected promise object
+   */
+  failed: Action<{ payload: TPayload; error: unknown }, void>;
+};
+
+export type CreateAction = {
+  <TData = void>(): Action<TData, TData> & ExtraActions<TData>;
+  <TData, TPayload = void>(body: (payload: TPayload) => TData): Action<
+    TData,
+    TPayload
+  > &
+    ExtraActions<TPayload>;
+};

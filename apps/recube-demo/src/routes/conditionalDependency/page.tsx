@@ -18,7 +18,9 @@ const FinalPriceSection = cube(() => {
 
   return (
     <Box flash>
-      <h2>Final Price: {finalPrice}</h2>
+      <h2>
+        Final Price: {finalPrice} {priceType() === 'origin' && '(No Discount)'}
+      </h2>
     </Box>
   );
 });

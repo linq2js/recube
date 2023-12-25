@@ -1,6 +1,7 @@
 import { changeWatcher } from './changeWatcher';
 import { AsyncResult, Equal, NoInfer } from './types';
 import { state } from './state';
+import { disposableScope } from './disposableScope';
 
 export const computed = <T>(
   fn: () => T,
@@ -10,13 +11,16 @@ export const computed = <T>(
   if (equal) {
     computedState.distinct(equal);
   }
-  const interceptor = changeWatcher.current();
+  const watcher = changeWatcher.current();
   const result = computedState();
-  // we just return state value if the computed() runs outside state interceptor scope
+  // we just return state value if the computed() runs outside change watching scope
   // This means we don't need to listen state change event or state's dependencies change event anymore
   // just clear all state instances and dispose the state immediately
-  if (!interceptor) {
+  if (!watcher) {
     computedState.wipe();
   }
+
+  disposableScope.current()?.onDispose(computedState.wipe);
+
   return result;
 };

@@ -4,7 +4,7 @@ import { delay, wait } from './async';
 import { state } from './state';
 
 describe('async', () => {
-  test('wait() should inject current interceptor to async thread automatically', async () => {
+  test('wait() should inject current watcher to async thread automatically', async () => {
     const s1 = state(1);
     const s2 = state(2);
     const s3 = state(3);

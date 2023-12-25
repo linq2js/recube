@@ -21,6 +21,22 @@ describe('family', () => {
   });
 });
 
+describe('mutable stable', () => {
+  test('mutable', () => {
+    const count = state(1);
+    count.set(2);
+    expect(count()).toBe(2);
+    count.set(prev => prev + 1);
+    expect(count()).toBe(3);
+  });
+
+  test('immutable', () => {
+    const increment = action();
+    const count = state(1).when(increment, prev => prev + 1);
+    expect(() => (count as any).set(2)).toThrow();
+  });
+});
+
 describe('when', () => {
   test('use action result as next state', async () => {
     const set = action<number>();

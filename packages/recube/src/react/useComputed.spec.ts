@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { equal } from '@wry/equality';
+import { equal } from '../utils';
 import { state } from '../state';
 import { action } from '../action';
 import { useComputed } from './useComputed';
