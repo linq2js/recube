@@ -4,7 +4,6 @@ export * from './effect';
 export * from './middleware';
 export * from './async';
 export * from './utils';
-export * from './stable';
 export * from './canceler';
 export * from './listenable';
 export * from './objectKeyedMap';

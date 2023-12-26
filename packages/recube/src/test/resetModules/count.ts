@@ -1,5 +1,5 @@
-import { action } from '@/action';
-import { state } from '@/state';
+import { state } from '../../state';
+import { action } from '../../action';
 
 export const increment = action();
 

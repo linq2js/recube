@@ -1,35 +1,33 @@
-import { renderHook } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
 import { useStable } from './useStable';
 
 describe('useStable', () => {
   test('useStable(init)', () => {
-    const mount = jest.fn();
-    const unmount = jest.fn();
-    const {
-      result,
-      rerender,
-      unmount: unmountHook,
-    } = renderHook(() => useStable(() => ({ mount, unmount, count: 1 })));
+    const onMount = jest.fn();
+    const onUnmount = jest.fn();
+    const { result, rerender, unmount } = renderHook(() =>
+      useStable(() => ({ onMount, onUnmount, count: 1 })),
+    );
     const r1 = result.current;
     rerender();
     const r2 = result.current;
-    unmountHook();
+    unmount();
 
     expect(r1.count).toBe(1);
     expect(r1).toBe(r2);
-    expect(mount).toHaveBeenCalled();
-    expect(unmount).toHaveBeenCalled();
+    expect(onMount).toHaveBeenCalled();
+    expect(onUnmount).toHaveBeenCalled();
   });
 
   test('useStable(callbacks)', () => {
-    const mount = jest.fn();
-    const unmount = jest.fn();
+    const onMount = jest.fn();
+    const onUnmount = jest.fn();
     const doSomething = jest.fn();
     const {
       result,
       rerender,
       unmount: unmountHook,
-    } = renderHook(() => useStable({ doSomething, mount, unmount }));
+    } = renderHook(() => useStable({ doSomething, onMount, onUnmount }));
     const r1 = result.current.doSomething;
     rerender();
     const r2 = result.current.doSomething;
@@ -38,13 +36,13 @@ describe('useStable', () => {
     expect(r1).toBe(r2);
     expect(r1).not.toBe(doSomething);
     expect(doSomething).toHaveBeenCalled();
-    expect(mount).toHaveBeenCalled();
-    expect(unmount).toHaveBeenCalled();
+    expect(onMount).toHaveBeenCalled();
+    expect(onUnmount).toHaveBeenCalled();
   });
 
   test('useStable(callbacks, init)', () => {
-    const mount = jest.fn();
-    const unmount = jest.fn();
+    const onMount = jest.fn();
+    const onUnmount = jest.fn();
     const other = jest.fn();
     const values = [1, 2];
     const {
@@ -57,8 +55,8 @@ describe('useStable', () => {
         { getCount: () => count, other },
         ({ getCount, ...rest }) => ({
           ...rest,
-          unmount,
-          mount,
+          onUnmount,
+          onMount,
           getDoubledCount: () => getCount() * 2,
         }),
       );
@@ -73,7 +71,31 @@ describe('useStable', () => {
     expect(r1).toBe(r2);
     expect(v1).toBe(2);
     expect(v2).toBe(4);
-    expect(mount).toHaveBeenCalled();
-    expect(unmount).toHaveBeenCalled();
+    expect(onMount).toHaveBeenCalled();
+    expect(onUnmount).toHaveBeenCalled();
+  });
+
+  test('onRender', () => {
+    const log = jest.fn();
+    const Comp = (props: any) => {
+      useStable({ props }, ({ props: getProps }) => {
+        return {
+          onRender() {
+            log(getProps());
+          },
+        };
+      });
+
+      return null;
+    };
+
+    const { rerender } = render(<Comp name="c1" />);
+    rerender(<Comp name="c2" />);
+    rerender(<Comp name="c3" />);
+    expect(log.mock.calls).toEqual([
+      [{ name: 'c1' }],
+      [{ name: 'c2' }],
+      [{ name: 'c3' }],
+    ]);
   });
 });

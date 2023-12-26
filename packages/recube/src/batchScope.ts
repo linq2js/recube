@@ -1,4 +1,4 @@
-import { scope } from '@/scope';
+import { scope } from './scope';
 
 export const batchScope = scope(() => {
   const updaters = new Set<VoidFunction>();

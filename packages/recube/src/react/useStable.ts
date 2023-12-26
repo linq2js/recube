@@ -1,20 +1,30 @@
 import { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { AnyFunc, NoInfer } from '../types';
-import { stableCallbackMap } from '../stable';
-import { NOOP } from '..';
-import { disposableScope } from '@/disposableScope';
+import { NOOP } from '../utils';
+import { disposableScope } from '../disposableScope';
+import { stableCallbackMap } from './stable';
+
+export type StableCallbacks<T extends Record<string, any>> = {
+  [key in keyof T]: T[key] extends AnyFunc ? T[key] : () => T[key];
+};
+
+export type ComponentLifeCycles = 'onMount' | 'onUnmount' | 'onRender';
 
 export type UseStable = {
-  <C extends Record<string, AnyFunc>>(callbacks: C): C;
-  <T, C extends Record<string, AnyFunc>>(
+  <T, C extends Record<string, any>>(
     callbacks: C,
-    init: (callbacks: NoInfer<C>) => T,
-  ): T;
+    init: (callbacks: NoInfer<StableCallbacks<C>>) => T,
+  ): Omit<T, ComponentLifeCycles>;
 
   /**
    * call init function once and return the init result
    */
-  <T>(init: () => T): T;
+  <T>(init: () => T): Omit<T, ComponentLifeCycles>;
+
+  <C extends Record<string, any>>(callbacks: C): Omit<
+    StableCallbacks<C>,
+    ComponentLifeCycles
+  >;
 };
 
 const createCallbackProxy = (
@@ -22,15 +32,17 @@ const createCallbackProxy = (
 ) => {
   const callbackMap = stableCallbackMap();
   const getCallback = (name: string | number | symbol) => {
-    if (
-      typeof name !== 'string' ||
-      typeof callbacksRef.current[name] !== 'function'
-    ) {
+    if (typeof name !== 'string') {
       return undefined;
     }
-    return callbackMap.get(name, (...args: any[]) =>
-      callbacksRef.current[name]?.(...args),
-    );
+
+    return callbackMap.get(name, (...args: any[]) => {
+      const propValue = callbacksRef.current[name];
+      if (typeof propValue === 'function') {
+        return propValue(...args);
+      }
+      return propValue;
+    });
   };
   const proxy = new Proxy(callbacksRef.current, {
     get(_, name) {
@@ -74,23 +86,25 @@ export const useStable: UseStable = (...args: any[]): any => {
 
     return createCallbackProxy(inputRef);
   });
+  const { onRender } = result ?? {};
+  useEffect(typeof onRender === 'function' ? onRender : NOOP);
 
   useEffect(() => {
-    const { mount, unmount } = result || {};
-    let unmount2: VoidFunction | undefined;
-    if (typeof mount === 'function') {
-      unmount2 = mount();
+    const { onMount, onUnmount } = result || {};
+    let onUnmount2: VoidFunction | undefined;
+    if (typeof onMount === 'function') {
+      onUnmount2 = onMount();
     }
 
     return () => {
       disposeRef.current();
 
-      if (typeof unmount === 'function') {
-        unmount();
+      if (typeof onUnmount === 'function') {
+        onUnmount();
       }
 
-      if (typeof unmount2 === 'function') {
-        unmount2();
+      if (typeof onUnmount2 === 'function') {
+        onUnmount2();
       }
     };
   }, [result]);
