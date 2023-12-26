@@ -49,7 +49,7 @@ describe('canceler', () => {
     await expect(r1).resolves.toBe(2);
     expect(count()).toBe(3);
 
-    const cc = canceler();
+    const cc = canceler.new();
     cc.wrap(doSomething);
     await delay(5);
     cc.cancel();

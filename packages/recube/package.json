@@ -1,8 +1,9 @@
 {
   "name": "recube",
-  "version": "2.10.0",
-  "types": "dist/ts/index.d.ts",
-  "main": "dist/ts/index.js",
+  "version": "2.15.0",
+  "types": "index.d.ts",
+  "main": "index.js",
+  "private": true,
   "files": [
     "**"
   ],
@@ -10,25 +11,27 @@
     "./package.json": "./package.json",
     ".": {
       "default": {
-        "types": "./dist/ts/index.d.ts",
-        "default": "./dist/ts/index.js"
+        "types": "./index.d.ts",
+        "default": "./index.js"
       }
     },
     "./react": {
       "default": {
-        "types": "./dist/ts/react/index.d.ts",
-        "default": "./dist/ts/react/index.js"
+        "types": "./react/index.d.ts",
+        "default": "./react/index.js"
       }
     }
   },
   "scripts": {
-    "prepare": "yarn build",
+    "publish:package_json": "shx cp package.json readme.md dist && json -I -f dist/package.json -e \"this.private=false; this.devDependencies=undefined; this.optionalDependencies=undefined; this.scripts=undefined; this.prettier=undefined;\"",
     "build": "tsc",
-    "prepublish": "yarn test",
     "test": "jest --detectOpenHandles",
-    "publish:patch": "npm version patch && npm publish",
-    "publish:minor": "npm version minor && npm publish",
-    "publish:major": "npm version major && npm publish"
+    "prepare": "yarn build",
+    "publish:pre": "yarn test && yarn build && yarn publish:package_json",
+    "publish:start": "yarn publish:pre && cd ./dist && npm publish",
+    "publish:patch": "npm version patch && yarn publish:start",
+    "publish:minor": "npm version minor && yarn publish:start",
+    "publish:major": "npm version major && yarn publish:start"
   },
   "dependencies": {
     "@wry/equality": "0.5.7",
@@ -53,11 +56,8 @@
     "@testing-library/react-hooks": "8.0.1",
     "jest-environment-jsdom": "29.7.0",
     "react-error-boundary": "4.0.11",
-    "rollup": "4.9.1",
-    "@rollup/plugin-typescript": "11.1.5",
-    "@rollup/plugin-node-resolve": "15.2.3",
-    "@rollup/plugin-commonjs": "25.0.7",
-    "@rollup/plugin-multi-entry": "6.0.1"
+    "shx": "0.3.4",
+    "json": "11.0.0"
   },
   "sideEffects": false,
   "publishConfig": {

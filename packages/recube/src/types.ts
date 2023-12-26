@@ -110,6 +110,9 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     ? AsyncResult<D>
     : TReturn;
 
+  /**
+   * create a listenable object from current action
+   */
   pipe: {
     <R1>(f1: (p: Listenable<TData>) => R1): R1;
 

@@ -142,7 +142,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     error = undefined;
 
     if (typeof init === 'function') {
-      cc = canceler();
+      cc = canceler.new();
       cleanup?.();
       let disposeInner: VoidFunction | undefined;
       const [{ watch }, result] = changeWatcher.wrap(() => {
@@ -205,7 +205,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
           try {
             cc?.cancel();
-            cc = canceler();
+            cc = canceler.new();
             const nextValue = cc.wrap(() => reducer(value, result, { params }));
             change(nextValue);
           } catch (ex) {

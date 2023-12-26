@@ -104,8 +104,8 @@ const createCanceler = (...listenables: Listenable<any>[]) => {
 
 const cancelerScope = scope(createCanceler);
 
-export const canceler = Object.assign(() => createCanceler(), {
-  ...cancelerScope,
+export const canceler = Object.assign(cancelerScope, {
+  new: createCanceler,
   any(...listenables: Listenable<any>[]) {
     return createCanceler(...listenables);
   },
