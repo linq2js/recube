@@ -45,8 +45,6 @@ export type State<TValue, TParams = void> = {
 
   (params: TParams): TValue extends Promise<infer D> ? AsyncResult<D> : TValue;
 
-  distinct: (equal: Equal<TValue>) => State<TValue, TParams>;
-
   when: {
     /**
      * listen specified event and mutate the state with event data
@@ -112,8 +110,6 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
     ? AsyncResult<D>
     : TReturn;
 
-  once: () => Action<TData, TPayload, TReturn>;
-
   pipe: {
     <R1>(f1: (p: Listenable<TData>) => R1): R1;
 
@@ -168,8 +164,6 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    */
   cancel: () => void;
 
-  distinct: (equal: Equal<TPayload>) => Action<TData, TPayload, TReturn>;
-
   last: () => TData | null;
 };
 
@@ -207,13 +201,20 @@ export type ImmutableType =
   | symbol
   | RegExp;
 
-export type StateOptions = {
+export type StateOptions<T> = {
   name?: string;
+  equal?: Equal<NoInfer<T>>;
+};
+
+export type ActionOptions<T> = {
+  name?: string;
+  equal?: Equal<T>;
+  once?: boolean;
 };
 
 export type CreateState = <T, P = void>(
   init: ((params: P) => T) | T,
-  options?: StateOptions,
+  options?: StateOptions<NoInfer<T>>,
 ) => MutableState<T, P>;
 
 export type ExtraActions<TPayload> = {

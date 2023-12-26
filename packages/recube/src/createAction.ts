@@ -1,5 +1,11 @@
 import { emitter } from './emitter';
-import { Action, ActionMiddlewareContext, AnyFunc, State } from './types';
+import {
+  Action,
+  ActionMiddlewareContext,
+  ActionOptions,
+  AnyFunc,
+  State,
+} from './types';
 import { asyncResult, isPromiseLike } from './async';
 import { NOOP } from './utils';
 import { canceler } from './canceler';
@@ -21,7 +27,12 @@ class ActionData {
   }
 }
 
-export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
+export const createAction = (
+  body?: AnyFunc,
+  options: ActionOptions<any> = {},
+  middleware: AnyFunc[] = [],
+) => {
+  const { equal, once } = options;
   const onDispatch = emitter<any>();
   const changeResultAction = lazyValue(
     () => createAction() as Action<ActionData, ActionData>,
@@ -46,7 +57,7 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
     onDispose.on(dispose);
     return result;
   });
-  let equalFn: AnyFunc | undefined;
+
   // keep last result for late use with resultState
   const callInfo = {
     /**
@@ -65,7 +76,7 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
      * indicate whether wrapper is dispatched or not
      */
     dispatched: false,
-    once: false,
+    once,
   };
 
   const context: ActionMiddlewareContext = {
@@ -170,7 +181,7 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       const payload = args[0];
       callInfo.dispatched = true;
       // when distinct mode enabled, skip dispatching if previous payload is equal to current payload
-      if (equalFn && callInfo.count && equalFn(payload, callInfo.payload)) {
+      if (equal && callInfo.count && equal(payload, callInfo.payload)) {
         return callInfo.result;
       }
 
@@ -208,7 +219,8 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
       cancel: NOOP,
       calling: DEFAULT_CALLING,
       use(...newMiddleware: AnyFunc[]) {
-        return createAction(body, middleware.concat(newMiddleware));
+        middleware.push(...newMiddleware);
+        return instance;
       },
       pipe(...functions: AnyFunc[]): any {
         return functions.reduce(
@@ -216,16 +228,8 @@ export const createAction = (body?: AnyFunc, middleware: AnyFunc[] = []) => {
           instance as any,
         );
       },
-      distinct(equal: AnyFunc) {
-        equalFn = equal;
-        return instance;
-      },
       last() {
         return callInfo.count ? callInfo.payload : null;
-      },
-      once() {
-        callInfo.once = true;
-        return instance;
       },
     },
   );

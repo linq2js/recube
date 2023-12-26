@@ -30,19 +30,18 @@ const DEFAULT_REDUCER = (_: any, result: any) => result;
 
 export const createState = <T, P, E extends Record<string, any> = EO>(
   init: T | ((params: P) => T),
-  _: StateOptions = {},
+  { equal = STRICT_EQUAL }: StateOptions<T> = {},
   enhancer?: (state: MutableState<T, P>) => E,
 ): E & MutableState<T, P> => {
   const instances = objectKeyedMap({
     create: (params: P) => {
-      const instance = createStateInstance(init, params, equalFn);
+      const instance = createStateInstance(init, params, equal);
       onCreate.emit(instance);
       return instance;
     },
     onRemove: x => x.dispose(),
   });
   const onCreate = emitter<StateInstance>();
-  let equalFn = STRICT_EQUAL;
   let mutable = true;
 
   let prevParams: P | undefined;
@@ -72,10 +71,6 @@ export const createState = <T, P, E extends Record<string, any> = EO>(
       ): any {
         mutable = false;
         applyAll(({ when }) => when(listenable, options));
-        return definition;
-      },
-      distinct(equal: AnyFunc) {
-        equalFn = equal;
         return definition;
       },
       wipe(filter?: AnyFunc) {
