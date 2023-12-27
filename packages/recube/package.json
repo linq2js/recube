@@ -1,34 +1,34 @@
 {
   "name": "recube",
-  "version": "2.15.0",
-  "types": "index.d.ts",
-  "main": "index.js",
+  "version": "2.16.0",
+  "types": "dist/ts/index.d.ts",
+  "main": "dist/ts/index.js",
   "private": true,
   "files": [
     "**"
   ],
   "exports": {
-    "./package.json": "./package.json",
+    "./package.json": "./dist/ts/package.json",
     ".": {
       "default": {
-        "types": "./index.d.ts",
-        "default": "./index.js"
+        "types": "./dist/ts/index.d.ts",
+        "default": "./dist/ts/index.js"
       }
     },
     "./react": {
       "default": {
-        "types": "./react/index.d.ts",
-        "default": "./react/index.js"
+        "types": "./dist/ts/react/index.d.ts",
+        "default": "./dist/ts/react/index.js"
       }
     }
   },
   "scripts": {
-    "publish:package_json": "shx cp package.json readme.md dist && json -I -f dist/package.json -e \"this.private=false; this.devDependencies=undefined; this.optionalDependencies=undefined; this.scripts=undefined; this.prettier=undefined;\"",
     "build": "tsc",
     "test": "jest --detectOpenHandles",
     "prepare": "yarn build",
-    "publish:pre": "yarn test && yarn build && yarn publish:package_json",
-    "publish:start": "yarn publish:pre && cd ./dist && npm publish",
+    "publish:pre": "yarn test && yarn build && yarn publish:create",
+    "publish:create": "shx cp -R dist/ts dist/publish/dist && shx cp package.json readme.md dist/publish && json -I -f dist/publish/package.json -e \"this.private=false; this.devDependencies=undefined; this.optionalDependencies=undefined; this.scripts=undefined; this.prettier=undefined;\"",
+    "publish:start": "yarn publish:pre && cd ./dist/publish && npm publish",
     "publish:patch": "npm version patch && yarn publish:start",
     "publish:minor": "npm version minor && yarn publish:start",
     "publish:major": "npm version major && yarn publish:start"

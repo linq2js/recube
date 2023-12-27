@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
+    "outDir": "./dist/ts",
     "allowJs": true,
     "baseUrl": ".",
     "declaration": true,

@@ -106,6 +106,9 @@ export type ActionMiddlewareContext = {
 
 export type AnyAction = Action<any, any, any>;
 
+/**
+ * Action object
+ */
 export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
   TData extends Promise<infer D> ? D : TData
 > & {

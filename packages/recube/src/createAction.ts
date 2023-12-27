@@ -123,22 +123,6 @@ export const createAction = (
     }
     if (isPromiseLike(result)) {
       const originalPromise = result;
-      const wrappedPromise = new Promise((resolve, reject) => {
-        originalPromise
-          .then(value => {
-            calling = false;
-            if (!cancelled && !ac?.cancelled) {
-              resolve(value);
-              onDispatch.emit(value);
-            }
-          })
-          .catch(reason => {
-            calling = false;
-            if (!cancelled && !ac?.cancelled) {
-              reject(reason);
-            }
-          });
-      });
 
       updateContext({
         calling() {
@@ -146,13 +130,29 @@ export const createAction = (
         },
       });
 
-      result = asyncResult(wrappedPromise);
+      result = asyncResult(
+        new Promise((resolve, reject) => {
+          originalPromise
+            .then(value => {
+              calling = false;
+              if (cancelled || ac?.cancelled) {
+                return;
+              }
+              resolve(value);
+              onDispatch.emit(value);
+            })
+            .catch(reason => {
+              calling = false;
+              if (cancelled || ac?.cancelled) {
+                return;
+              }
+              reject(reason);
+              failedAction.peek()?.(reason);
+            })
+            .finally(nextAction);
+        }),
+      );
 
-      wrappedPromise.catch(error => {
-        failedAction.peek()?.(error);
-      });
-
-      wrappedPromise.finally(nextAction);
       loadingAction.peek()?.({ payload });
     } else {
       try {
@@ -190,18 +190,17 @@ export const createAction = (
         return callInfo.result;
       }
 
-      const wrappedDispatch = middleware.reduceRight(
+      const dispatchWrapper = middleware.reduceRight(
         (next, wrapper) => {
           return () => {
             wrapper(context, next);
           };
         },
-        () => {
-          dispatch(...args);
-        },
+        () => dispatch(...args),
       );
 
-      wrappedDispatch();
+      dispatchWrapper();
+
       return undefined;
     },
     {

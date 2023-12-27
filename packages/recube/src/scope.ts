@@ -57,13 +57,13 @@ export type Scope = {
   ];
 };
 
-const currentScopes = new Map();
+const activeScopes = new Map();
 
 const createScope = (create: AnyFunc) => {
   let accessor: AnyFunc;
 
   const get = () => {
-    return currentScopes.get(accessor);
+    return activeScopes.get(accessor);
   };
 
   accessor = (...args: any[]) => {
@@ -76,14 +76,14 @@ const createScope = (create: AnyFunc) => {
     const current = customScope ?? create();
     const { onEnter, onExit } = current ?? {};
     const prev = get();
-    currentScopes.set(accessor, current);
+    activeScopes.set(accessor, current);
     try {
       if (typeof onEnter === 'function') {
         onEnter();
       }
       return [current, fn()] as const;
     } finally {
-      currentScopes.set(accessor, prev);
+      activeScopes.set(accessor, prev);
       if (typeof onExit === 'function') {
         onExit();
       }
@@ -95,7 +95,7 @@ const createScope = (create: AnyFunc) => {
 
 export const scope: Scope = (...args: any[]): any => {
   if (!args.length) {
-    const snapshot = new Map(currentScopes);
+    const snapshot = new Map(activeScopes);
     return Object.assign(
       (type: any) => {
         if (!type) {
