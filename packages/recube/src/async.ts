@@ -1,5 +1,5 @@
-import { canceler } from './canceler';
-import { changeWatcher } from './changeWatcher';
+import { cancellable } from './cancellable';
+import { trackable } from './trackable';
 import { AnyFunc, AsyncResult, Awaitable, Loadable, State } from './types';
 
 export type WaitResult<T, TLoadable extends boolean> = TLoadable extends true
@@ -61,11 +61,11 @@ export const wait: Wait = (
   onResolve?: AnyFunc,
   onReject?: AnyFunc,
 ) => {
-  const watcher = changeWatcher.current();
-  const co = canceler.current();
+  const watcher = trackable();
+  const co = cancellable();
   const wrap = <T extends AnyFunc>(fn: T) => {
     return (...args: Parameters<T>) => {
-      const [, result] = changeWatcher.wrap(() => fn(...args), watcher);
+      const [, result] = trackable(() => fn(...args), watcher);
       return result;
     };
   };
@@ -136,7 +136,7 @@ const createWait =
       if (useLoadable) {
         if (result.loading) {
           // tell current context should listen async result change event
-          changeWatcher.current()?.addListenable(result);
+          trackable()?.add(result);
         }
 
         return result;
@@ -272,17 +272,21 @@ export const isPromiseLike = <T>(value: any): value is Promise<T> => {
 
 export const delay = (ms = 0) => {
   let timeoutId: any;
-  const cc = canceler.current();
+  const cc = cancellable();
   return Object.assign(
     new Promise<void>((resolve, reject) => {
-      timeoutId = setTimeout(() => {
-        const e = cc?.error();
-        if (e) {
-          reject(e);
-        } else {
-          resolve(e);
-        }
-      }, ms);
+      timeoutId = setTimeout(
+        () => {
+          const e = cc?.error();
+          if (e) {
+            reject(e);
+          } else {
+            resolve(e);
+          }
+        },
+        ms,
+        true,
+      );
     }),
     {
       cancel() {

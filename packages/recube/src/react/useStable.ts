@@ -1,7 +1,7 @@
 import { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { AnyFunc, NoInfer } from '../types';
 import { NOOP } from '../utils';
-import { disposableScope } from '../disposableScope';
+import { disposable } from '../disposable';
 import { stableCallbackMap } from './stable';
 
 export type StableCallbacks<T extends Record<string, any>> = {
@@ -71,7 +71,7 @@ export const useStable: UseStable = (...args: any[]): any => {
   const [result] = useState(() => {
     if (typeof args[0] === 'function') {
       const init = args[0] as AnyFunc;
-      const [{ dispose }, result] = disposableScope.wrap(init);
+      const [{ dispose }, result] = disposable(init);
       disposeRef.current = dispose;
       return result;
     }
@@ -79,7 +79,7 @@ export const useStable: UseStable = (...args: any[]): any => {
     if (typeof args[1] === 'function') {
       const proxy = createCallbackProxy(inputRef);
       const init = args[1] as AnyFunc;
-      const [{ dispose }, result] = disposableScope.wrap(() => init(proxy));
+      const [{ dispose }, result] = disposable(() => init(proxy));
       disposeRef.current = dispose;
       return result;
     }

@@ -1,4 +1,4 @@
-import { changeWatcher } from './changeWatcher';
+import { trackable } from './trackable';
 
 export type EffectContext = {
   /**
@@ -20,7 +20,7 @@ export const effect = (
   const context = { count: 0 };
   const runEffect = () => {
     unwatch?.();
-    const [{ watch }, result] = changeWatcher.wrap(() => fn(context));
+    const [{ track: watch }, result] = trackable(() => fn(context));
     dispose = typeof result === 'function' ? result : undefined;
     context.count++;
     unwatch = watch(runEffect);

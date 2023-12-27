@@ -10,10 +10,11 @@ import {
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
 import { asyncResult, isPromiseLike } from './async';
-import { changeWatcher } from './changeWatcher';
+import { trackable } from './trackable';
 import { STRICT_EQUAL } from './utils';
-import { Canceler, canceler } from './canceler';
-import { disposableScope } from './disposableScope';
+import { Cancellable, cancellable } from './cancellable';
+import { disposable } from './disposable';
+import { scope } from './scope';
 
 export type StateInstance = {
   readonly value: any;
@@ -97,7 +98,7 @@ export const createState = <T, P, E extends Record<string, any> = EO>(
     },
   );
 
-  disposableScope.current()?.onDispose(definition.wipe);
+  disposable()?.add(definition.wipe);
 
   return Object.assign(definition, enhancer?.(definition));
 };
@@ -108,7 +109,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   let cleanup: VoidFunction | undefined;
   // hold computation error
   let error: any;
-  let cc: Canceler | undefined;
+  let cc: Cancellable | undefined;
   const onChange = emitter();
   const onDispose = emitter();
 
@@ -142,25 +143,23 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     error = undefined;
 
     if (typeof init === 'function') {
-      cc = canceler.new();
       cleanup?.();
-      let disposeInner: VoidFunction | undefined;
-      const [{ watch }, result] = changeWatcher.wrap(() => {
-        const [{ dispose }, result] = disposableScope.wrap(() =>
-          cc?.wrap(() => {
-            try {
-              return (init as AnyFunc)(params);
-            } catch (ex) {
-              error = ex;
-              return undefined;
-            }
-          }),
-        );
-        disposeInner = dispose;
-        return result;
-      });
+      const [scopes, result] = scope(
+        { cancellable, disposable, trackable },
+        () => {
+          try {
+            return (init as AnyFunc)(params);
+          } catch (ex) {
+            error = ex;
+            return undefined;
+          }
+        },
+      );
+
+      cc = scopes.cancellable;
+
       // we keep watching even if an error occurs
-      const unwatch = watch(() => {
+      const unwatch = scopes.trackable.track(() => {
         staled = true;
         cleanup?.();
 
@@ -171,7 +170,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
       cleanup = () => {
         unwatch();
-        disposeInner?.();
+        scopes.disposable.dispose();
       };
 
       if (!error) {
@@ -191,7 +190,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         throw error;
       }
 
-      changeWatcher.current()?.addListenable(onChange);
+      trackable()?.add(onChange);
 
       return value;
     },
@@ -205,8 +204,10 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
           try {
             cc?.cancel();
-            cc = canceler.new();
-            const nextValue = cc.wrap(() => reducer(value, result, { params }));
+            const [nextCancellable, nextValue] = cancellable(() =>
+              reducer(value, result, { params }),
+            );
+            cc = nextCancellable;
             change(nextValue);
           } catch (ex) {
             error = ex;

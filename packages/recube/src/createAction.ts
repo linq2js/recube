@@ -8,9 +8,9 @@ import {
 } from './types';
 import { asyncResult, isPromiseLike } from './async';
 import { NOOP } from './utils';
-import { canceler } from './canceler';
+import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
-import { disposableScope } from './disposableScope';
+import { disposable } from './disposable';
 import { createState } from './createState';
 import { batch } from './batchScope';
 
@@ -43,7 +43,7 @@ export const createAction = (
     () => createAction(createState) as Action<any, any>,
   );
   const resultState = lazyValue<State<any, void>>(() => {
-    const [{ dispose }, result] = disposableScope.wrap(() =>
+    const [{ dispose }, result] = disposable(() =>
       createState<any, void>(callInfo.result, { name: '#ACTION_RESULT' }).when(
         changeResultAction(),
         (_, result) => {
@@ -102,7 +102,7 @@ export const createAction = (
 
   const dispatch = (...args: any[]): any => {
     const payload = args[0];
-    const ac = canceler.current();
+    const ac = cancellable();
     ac?.throwIfCancelled();
     let cancelled = false;
     let calling = true;
@@ -240,7 +240,7 @@ export const createAction = (
     loading: { get: loadingAction },
   });
 
-  disposableScope.current()?.onDispose(onDispose.emit);
+  disposable()?.add(onDispose.emit);
 
   return instance;
 };

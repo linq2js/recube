@@ -1,4 +1,4 @@
-import { changeWatcher } from './changeWatcher';
+import { trackable } from './trackable';
 import { emitter } from './emitter';
 import { AnyFunc } from './types';
 
@@ -41,7 +41,7 @@ export const lazyValue: CreateLazyValue = (creator: AnyFunc) => {
         try {
           unwatch?.();
           onReset.clear();
-          const [{ watch }, value] = changeWatcher.wrap(creator);
+          const [{ track: watch }, value] = trackable(creator);
           cache = { value, type: 'ready' };
           unwatch = watch(reset);
         } catch (ex) {
@@ -51,7 +51,7 @@ export const lazyValue: CreateLazyValue = (creator: AnyFunc) => {
 
       const result = getResult();
 
-      changeWatcher.current()?.addListenable(onReset);
+      trackable()?.add(onReset);
 
       return result;
     },

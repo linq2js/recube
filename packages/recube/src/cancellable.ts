@@ -3,19 +3,18 @@ import { scope } from './scope';
 import { Listenable, Listener } from './types';
 import { NOOP } from './utils';
 
-export type Canceler = Listenable<any> & {
+export type Cancellable = Listenable<any> & {
   cancelled: () => boolean;
   cancel: (reason?: any) => void;
   reason: () => any;
   signal: () => AbortSignal | undefined;
   error: () => Error | undefined;
   throwIfCancelled: () => void;
-  wrap: <T>(fn: () => T) => T;
 };
 
 const CANCELLED_ERROR_PROP = Symbol('CancelledError');
 
-const createCanceler = (...listenables: Listenable<any>[]) => {
+const create = (...listenables: Listenable<any>[]) => {
   let ac: AbortController | undefined;
   let cancelled: { reason: any } | undefined;
   let disposed = false;
@@ -58,7 +57,7 @@ const createCanceler = (...listenables: Listenable<any>[]) => {
     onDispose.on(x.on(cancel));
   });
 
-  const instance: Canceler = {
+  const instance: Cancellable = {
     cancelled() {
       return Boolean(cancelled);
     },
@@ -93,24 +92,17 @@ const createCanceler = (...listenables: Listenable<any>[]) => {
         throw e;
       }
     },
-    wrap(fn) {
-      const [, result] = cancelerScope.wrap(fn, instance);
-      return result;
-    },
   };
 
   return instance;
 };
 
-const cancelerScope = scope(createCanceler);
-
-export const canceler = Object.assign(cancelerScope, {
-  new: createCanceler,
+export const cancellable = Object.assign(scope(create), {
   any(...listenables: Listenable<any>[]) {
-    return createCanceler(...listenables);
+    return create(...listenables);
   },
   timeout(ms: number) {
-    const ac = createCanceler();
+    const ac = create();
     setTimeout(ac.cancel, ms, 'Timeout');
     return ac;
   },

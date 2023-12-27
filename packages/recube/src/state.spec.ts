@@ -1,6 +1,6 @@
 import { action } from './action';
 import { delay } from './async';
-import { canceler } from './canceler';
+import { cancellable } from './cancellable';
 import { state } from './state';
 
 describe('family', () => {
@@ -91,12 +91,12 @@ describe('canceler', () => {
   test('canceler must exist when recomputing/reducing state', () => {
     const increment = action();
     const count = state(() => {
-      const cc = canceler.current();
+      const cc = cancellable();
       expect(cc).not.toBeUndefined();
 
       return 1;
     }).when(increment, prev => {
-      const cc = canceler.current();
+      const cc = cancellable();
       expect(cc).not.toBeUndefined();
       return prev;
     });

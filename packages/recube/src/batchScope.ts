@@ -22,6 +22,6 @@ export const batchScope = scope(() => {
 });
 
 export const batch = <T>(fn: () => T): T => {
-  const [, result] = batchScope.wrap(fn);
+  const [, result] = batchScope(fn);
   return result;
 };

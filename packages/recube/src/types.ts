@@ -9,6 +9,11 @@ export type Equal<T = any> = (a: T, b: T) => boolean;
  */
 export type EO = Record<string, never>;
 
+export type Dictionary<
+  V = any,
+  K extends string | symbol | number = string,
+> = Record<K, V>;
+
 export type StateContext<P> = {
   readonly params: P;
 };

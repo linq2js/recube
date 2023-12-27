@@ -1,6 +1,6 @@
 import { scope } from './scope';
 
-export const disposableScope = scope(() => {
+export const disposable = scope(() => {
   const disposes = new Set<VoidFunction>();
 
   return {
@@ -8,7 +8,7 @@ export const disposableScope = scope(() => {
       disposes.forEach(x => x());
       disposes.clear();
     },
-    onDispose(dispose: VoidFunction) {
+    add(dispose: VoidFunction) {
       disposes.add(dispose);
     },
   };

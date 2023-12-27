@@ -1,4 +1,4 @@
-import { changeWatcher } from './changeWatcher';
+import { trackable } from './trackable';
 import { Equal } from './types';
 import { NOOP } from './utils';
 
@@ -40,7 +40,7 @@ export const memoize = <R, A extends any[]>(
       if (cached) {
         return cached.result;
       }
-      const [{ watch }, result] = changeWatcher.wrap(() => fn(...args));
+      const [{ track: watch }, result] = trackable(() => fn(...args));
       if (size && calls.length >= size) {
         calls.shift()?.unwatch?.();
       }

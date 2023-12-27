@@ -1,4 +1,4 @@
-import { canceler } from './canceler';
+import { cancellable } from './cancellable';
 import { action } from './action';
 import { delay } from './async';
 import { effect } from './effect';
@@ -36,7 +36,7 @@ describe('wrapper', () => {
 describe('canceler', () => {
   test('canceler with return value', async () => {
     const doSomething = action(async () => {
-      const cc = canceler.current();
+      const cc = cancellable();
       await delay(10);
       cc?.throwIfCancelled();
       return 2;
@@ -49,8 +49,7 @@ describe('canceler', () => {
     await expect(r1).resolves.toBe(2);
     expect(count()).toBe(3);
 
-    const cc = canceler.new();
-    cc.wrap(doSomething);
+    const [cc] = cancellable(doSomething);
     await delay(5);
     cc.cancel();
     // nothing change because action dispatching cancelled
