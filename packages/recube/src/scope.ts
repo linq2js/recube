@@ -1,3 +1,4 @@
+import { iterableWeakMap } from './iterableWeakMap';
 import { AnyFunc, Dictionary } from './types';
 
 export type ScopeEvents = 'onExit' | 'onEnter';
@@ -57,7 +58,7 @@ export type Scope = {
   ];
 };
 
-const activeScopes = new Map();
+const activeScopes = iterableWeakMap();
 
 const createScope = (create: AnyFunc) => {
   let accessor: AnyFunc;
@@ -95,7 +96,7 @@ const createScope = (create: AnyFunc) => {
 
 export const scope: Scope = (...args: any[]): any => {
   if (!args.length) {
-    const snapshot = new Map(activeScopes);
+    const snapshot = activeScopes.clone();
     return Object.assign(
       (type: any) => {
         if (!type) {
@@ -110,7 +111,7 @@ export const scope: Scope = (...args: any[]): any => {
         }
         const obj: Dictionary = {};
         Object.keys(type).forEach(key => {
-          obj[key] = snapshot.get(key);
+          obj[key] = snapshot.get(type[key]);
         });
         return obj;
       },

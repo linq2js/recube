@@ -1,6 +1,6 @@
 {
   "name": "recube",
-  "version": "2.16.0",
+  "version": "2.20.0",
   "types": "dist/ts/index.d.ts",
   "main": "dist/ts/index.js",
   "private": true,
@@ -8,7 +8,7 @@
     "**"
   ],
   "exports": {
-    "./package.json": "./dist/ts/package.json",
+    "./package.json": "./package.json",
     ".": {
       "default": {
         "types": "./dist/ts/index.d.ts",
@@ -26,8 +26,9 @@
     "build": "tsc",
     "test": "jest --detectOpenHandles",
     "prepare": "yarn build",
-    "publish:pre": "yarn test && yarn build && yarn publish:create",
+    "publish:pre": "yarn test && yarn build && yarn publish:create && yarn publish:copy_entries",
     "publish:create": "shx cp -R dist/ts dist/publish/dist && shx cp package.json readme.md dist/publish && json -I -f dist/publish/package.json -e \"this.private=false; this.devDependencies=undefined; this.optionalDependencies=undefined; this.scripts=undefined; this.prettier=undefined;\"",
+    "publish:copy_entries": "shx cp -R dist/ts/react dist/publish",
     "publish:start": "yarn publish:pre && cd ./dist/publish && npm publish",
     "publish:patch": "npm version patch && yarn publish:start",
     "publish:minor": "npm version minor && yarn publish:start",
