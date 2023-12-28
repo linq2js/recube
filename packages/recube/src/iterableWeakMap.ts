@@ -70,20 +70,20 @@ export const iterableWeakMap = <K extends object, V>(entries?: [K, V][]) => {
     },
     forEach(callback: (value: V, key: K) => void) {
       merge();
-      const removed: WeakRef<K>[] = [];
+      const disposed: WeakRef<K>[] = [];
 
       try {
         refs.forEach(ref => {
           const key = ref.deref();
 
           if (!key) {
-            removed.push(ref);
+            disposed.push(ref);
           } else {
             callback(map.get(key) as V, key);
           }
         });
       } finally {
-        removed.splice(-removed.length).forEach(ref => refs.delete(ref));
+        disposed.splice(-disposed.length).forEach(ref => refs.delete(ref));
       }
     },
   };
