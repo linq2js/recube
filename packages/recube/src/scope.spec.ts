@@ -1,5 +1,5 @@
-import { delay } from './async';
-import { scope, scoped } from './scope';
+import { delay, scoped } from './async';
+import { scope } from './scope';
 
 describe('scope', () => {
   test('using snapshot with async', async () => {

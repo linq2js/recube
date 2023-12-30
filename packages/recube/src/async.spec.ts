@@ -1,7 +1,6 @@
-/* eslint-disable max-nested-callbacks */
 import { action } from './action';
 import { alter } from './alter';
-import { asyncResult, delay, all, loadable, wait } from './async';
+import { asyncResult, delay, loadable, wait, chain } from './async';
 import { state } from './state';
 
 describe('async', () => {
@@ -16,8 +15,11 @@ describe('async', () => {
     );
     const sum = state(() => {
       const v1 = s1() + s2();
-      return all([s3, delay(10)] as const).then(([v2]) =>
-        all(s4).then(v3 => v1 + v2 + v3),
+
+      return chain(
+        { _delay: delay(10), v2: s3() },
+        ({ v2 }) => ({ v2, v3: s4() }),
+        ({ v2, v3 }) => v1 + v2 + v3,
       );
     });
     const sum1 = sum();

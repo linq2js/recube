@@ -1,8 +1,9 @@
+/* eslint-disable max-lines */
 import { cancellable } from './cancellable';
-import { scoped } from './scope';
+import { scope } from './scope';
 import { trackable } from './trackable';
-import { AsyncResult, Dictionary, Loadable } from './types';
-import { NOOP } from './utils';
+import { AnyFunc, AsyncResult, Dictionary, Loadable } from './types';
+import { NOOP, isObject } from './utils';
 
 export type Awaitable<T = any> =
   | (() => T | PromiseLike<T>)
@@ -53,6 +54,7 @@ type ResolvedData = {
 };
 
 const ASYNC_RESULT_PROP = Symbol('asyncResult');
+const SCOPE_STACK_PROP = Symbol('scopeStack');
 
 const resolveData = (key: any, value: any): ResolvedData => {
   if (isPromiseLike(value)) {
@@ -338,5 +340,166 @@ export const delay = (ms = 0) => {
         clearTimeout(timeoutId);
       },
     },
+  );
+};
+
+export const scoped = <T extends Promise<any>>(value: T): T => {
+  const snapshot = scope();
+
+  // same scope
+  if ((value as any)[SCOPE_STACK_PROP] === snapshot) {
+    return value;
+  }
+
+  const methods = {
+    finally: value.finally?.bind(value),
+    then: value.then?.bind(value),
+    catch: value.catch?.bind(value),
+  };
+  const wrap = (fn?: AnyFunc) => {
+    if (!fn) {
+      return undefined;
+    }
+    return (...args: any[]) => {
+      return scope(snapshot, () => fn(...args));
+    };
+  };
+  return Object.assign(value, {
+    [SCOPE_STACK_PROP]: snapshot,
+    then(...args: any[]) {
+      return scoped(methods.then(wrap(args[0]), wrap(args[1])));
+    },
+    catch: methods.catch
+      ? (...args: any[]) => {
+          return scoped(methods.catch(wrap(args[0])));
+        }
+      : undefined,
+    finally: methods.finally
+      ? (...args: any[]) => {
+          return scoped(methods.finally(wrap(args[0])));
+        }
+      : undefined,
+  });
+};
+
+export type MaybePromise<T> = PromiseLike<T> | T;
+
+export type ChainResult<T> = T extends PromiseLike<any>
+  ? T
+  : T extends Record<string, any>
+  ? {
+      [key in keyof T]: Extract<T[key], MaybePromise<any>> extends MaybePromise<
+        infer D
+      >
+        ? D
+        : T[key];
+    }
+  : T;
+
+export type ChainFunc<P, R> = (payload: ChainResult<P>) => R;
+
+export type Chain = {
+  <R1, R2>(initial: R1, f2: ChainFunc<R1, R2>): Promise<ChainResult<R2>>;
+
+  <R1, R2, R3>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+  ): Promise<ChainResult<R3>>;
+
+  <R1, R2, R3, R4>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+  ): Promise<ChainResult<R4>>;
+
+  <R1, R2, R3, R4, R5>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+  ): Promise<ChainResult<R5>>;
+
+  <R1, R2, R3, R4, R5, R6>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+  ): Promise<ChainResult<R6>>;
+
+  <R1, R2, R3, R4, R5, R6, R7>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+    f7: ChainFunc<R4, R7>,
+  ): Promise<ChainResult<R7>>;
+
+  <R1, R2, R3, R4, R5, R6, R7, R8>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+    f7: ChainFunc<R4, R7>,
+    f8: ChainFunc<R4, R8>,
+  ): Promise<ChainResult<R8>>;
+};
+
+export const chain: Chain = (initial: any, ...funcs: AnyFunc[]) => {
+  if (!funcs.length) {
+    throw new Error('Chain requires at least one function');
+  }
+
+  const snapshot = scope();
+
+  return Promise.resolve(
+    [() => initial, ...funcs].reduceRight((next, func) => (payload: any) => {
+      const result = scope(snapshot, () => func(payload));
+
+      if (!isObject(result)) {
+        return next(result);
+      }
+
+      if (isPromiseLike(result)) {
+        return result.then(next);
+      }
+
+      const promises: Promise<any>[] = [];
+      const nextPayload: Dictionary = {};
+
+      Object.entries(result).forEach(([key, value]) => {
+        if (isPromiseLike(value)) {
+          const ar = asyncResult(value);
+          if (ar.error) {
+            throw ar.error;
+          }
+
+          if (!ar.loading) {
+            nextPayload[key] = ar.data;
+            return;
+          }
+
+          promises.push(value.then(resolved => (nextPayload[key] = resolved)));
+
+          return;
+        }
+
+        nextPayload[key] = value;
+      });
+
+      if (promises.length) {
+        return Promise.all(promises).then(() => next(nextPayload));
+      }
+
+      return next(nextPayload);
+    })(initial),
   );
 };

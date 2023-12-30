@@ -61,8 +61,19 @@ export type Scope = {
   <T>(snapshot: ScopeSnapshot, fn: () => T): T;
 };
 
+/**
+ * Storing the active scopes as stack. The structure is as follows, the active is the first:
+ * ```
+ * [0] WeakMap(disposable)
+ * [1] WeakMap(trackable)
+ * [2] WeakMap(disposable)
+ * ...other items
+ * ```
+ *
+ * If we want to find the active scope of `disposable` type, the `disposable` scope located within the first item (item zero) will be found.
+ */
 let activeScopeStack: WeakMap<any, ScopeDef<any>>[] = [];
-const SCOPE_SNAPSHOT_PROP = Symbol('scopeStack');
+const SCOPE_SNAPSHOT_PROP = Symbol('scopeSnapshot');
 
 const find = (key: any, stack: WeakMap<any, any>[]) => {
   for (const item of stack) {
@@ -180,43 +191,4 @@ export const scope: Scope = (...args: any[]): any => {
       fn,
     )(),
   ];
-};
-
-export const scoped = <T extends Promise<any>>(value: T): T => {
-  const snapshot = scope();
-
-  // same scope
-  if ((value as any)[SCOPE_SNAPSHOT_PROP] === snapshot) {
-    return value;
-  }
-
-  const methods = {
-    finally: value.finally?.bind(value),
-    then: value.then?.bind(value),
-    catch: value.catch?.bind(value),
-  };
-  const wrap = (fn?: AnyFunc) => {
-    if (!fn) {
-      return undefined;
-    }
-    return (...args: any[]) => {
-      return scope(snapshot, () => fn(...args));
-    };
-  };
-  return Object.assign(value, {
-    [SCOPE_SNAPSHOT_PROP]: snapshot,
-    then(...args: any[]) {
-      return scoped(methods.then(wrap(args[0]), wrap(args[1])));
-    },
-    catch: methods.catch
-      ? (...args: any[]) => {
-          return scoped(methods.catch(wrap(args[0])));
-        }
-      : undefined,
-    finally: methods.finally
-      ? (...args: any[]) => {
-          return scoped(methods.finally(wrap(args[0])));
-        }
-      : undefined,
-  });
 };

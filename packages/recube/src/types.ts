@@ -29,7 +29,7 @@ export type Listenable<T = any> = {
 };
 
 export type Reducer<TValue, TParams, TData, TNext> = (
-  value: TValue extends Promise<infer D> ? AsyncResult<D> : TValue,
+  value: TValue,
   result: TData,
   context: StateContext<TParams>,
 ) => TNext;
@@ -48,7 +48,7 @@ export type MutableState<TValue, TParams = void> = State<TValue, TParams> & {
 export type State<TValue, TParams = void> = {
   type: 'state';
 
-  (params: TParams): TValue extends Promise<infer D> ? AsyncResult<D> : TValue;
+  (params: TParams): TValue;
 
   when: {
     /**
@@ -114,9 +114,7 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
 > & {
   readonly type: 'action';
 
-  (payload: TPayload): TReturn extends Promise<infer D>
-    ? AsyncResult<D>
-    : TReturn;
+  (payload: TPayload): TReturn;
 
   /**
    * create a listenable object from current action

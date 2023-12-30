@@ -53,7 +53,7 @@
       },
       {
         "file": ".nx/cache/file-map.json",
-        "hash": "16302174900324063661"
+        "hash": "16541465195102981949"
       },
       {
         "file": ".nx/cache/project-graph.json",
@@ -105,11 +105,11 @@
       },
       {
         "file": "src/async.spec.ts",
-        "hash": "5290911172004766179"
+        "hash": "1627757204008826323"
       },
       {
         "file": "src/async.ts",
-        "hash": "7682889873826445011"
+        "hash": "13061928461596119274"
       },
       {
         "file": "src/batchScope.ts",
@@ -241,11 +241,11 @@
       },
       {
         "file": "src/scope.spec.ts",
-        "hash": "14158623845707987702"
+        "hash": "10056767854495498963"
       },
       {
         "file": "src/scope.ts",
-        "hash": "14828761322580305976"
+        "hash": "14654107782383310082"
       },
       {
         "file": "src/state.spec.ts",
