@@ -1,204 +1,243 @@
 import { cancellable } from './cancellable';
+import { scoped } from './scope';
 import { trackable } from './trackable';
-import { AnyFunc, AsyncResult, Awaitable, Loadable, State } from './types';
+import { AsyncResult, Dictionary, Loadable } from './types';
+import { NOOP } from './utils';
 
-export type WaitResult<T, TLoadable extends boolean> = TLoadable extends true
-  ? T extends PromiseLike<infer D>
-    ? Loadable<D>
-    : Loadable<T>
-  : T extends PromiseLike<infer D>
-  ? D
-  : T;
+export type Awaitable<T = any> =
+  | (() => T | PromiseLike<T>)
+  | PromiseLike<T>
+  | undefined;
 
-export type Wait = {
-  <TAwaitable extends Awaitable<true>>(awaitable: TAwaitable): PromiseLike<
-    AwaitableData<TAwaitable, false, false>
-  >;
-  <TAwaitable extends Awaitable<true>, TResolved>(
-    awaitable: TAwaitable,
-    onResolve: (
-      value: AwaitableData<TAwaitable, false, false>,
-    ) => TResolved | PromiseLike<TResolved>,
-  ): PromiseLike<TResolved>;
+export type AwaitableGroup<T = any> =
+  | readonly Awaitable<T>[]
+  | Dictionary<Awaitable<T>>;
 
-  <TAwaitable extends Awaitable<true>, TResolved, TFallback>(
-    awaitable: TAwaitable,
-    onResolve: (
-      value: AwaitableData<TAwaitable, false, false>,
-    ) => TResolved | PromiseLike<TResolved>,
-    onReject: (error: unknown) => TFallback | PromiseLike<TFallback>,
-  ): PromiseLike<TResolved | TFallback>;
-};
+export type RaceFn = <A extends AwaitableGroup | Exclude<Awaitable, undefined>>(
+  awaitable: A,
+) => AsyncResult<Partial<AwaitableData<A>>>;
 
-export type AwaitableData<
-  TAwaitable extends Awaitable<any>,
-  TLoadable extends boolean,
-  TRace extends boolean,
-> = TAwaitable extends State<infer D>
-  ? WaitResult<D, TLoadable>
-  : TAwaitable extends AsyncResult<infer D>
-  ? WaitResult<D, TLoadable>
-  : TRace extends true
+export type AllFn = <A extends AwaitableGroup | Exclude<Awaitable, undefined>>(
+  awaitable: A,
+) => AsyncResult<AwaitableData<A>>;
+
+export type WaitFn = <A extends AwaitableGroup | Exclude<Awaitable, undefined>>(
+  awaitable: A,
+) => AwaitableData<A>;
+
+export type LoadableFn = <
+  T extends AwaitableGroup | Exclude<Awaitable, undefined>,
+>(
+  awaitable: T,
+) => T extends Awaitable<infer D>
+  ? Loadable<D>
+  : T extends AwaitableGroup
   ? {
-      [key in keyof TAwaitable]?: TAwaitable[key] extends State<infer D, void>
-        ? WaitResult<D, TLoadable>
-        : TAwaitable[key] extends AsyncResult<infer D>
-        ? WaitResult<D, TLoadable>
-        : never;
+      [key in keyof T]: T[key] extends Awaitable<infer D>
+        ? Loadable<D>
+        : Loadable<T[key]>;
     }
-  : {
-      [key in keyof TAwaitable]: TAwaitable[key] extends State<infer D, void>
-        ? WaitResult<D, TLoadable>
-        : TAwaitable[key] extends AsyncResult<infer D>
-        ? WaitResult<D, TLoadable>
-        : never;
-    };
+  : never;
+
+export type AwaitableData<T> = T extends Awaitable<infer D>
+  ? D
+  : T extends AwaitableGroup
+  ? { [key in keyof T]: T[key] extends Awaitable<infer D> ? D : T[key] }
+  : never;
+
+type ResolvedData = {
+  promise?: AsyncResult<any>;
+  data?: any;
+  error?: any;
+  key: any;
+};
 
 const ASYNC_RESULT_PROP = Symbol('asyncResult');
 
-export const wait: Wait = (
-  awaitable: any,
-  onResolve?: AnyFunc,
-  onReject?: AnyFunc,
-) => {
-  const watcher = trackable();
-  const co = cancellable();
-  const wrap = <T extends AnyFunc>(fn: T) => {
-    return (...args: Parameters<T>) => {
-      const [, result] = trackable(() => fn(...args), watcher);
-      return result;
-    };
-  };
-
-  try {
-    const result = waitAll(awaitable);
-    // no need to wrap, it is still in current thread
-    if (onResolve) {
-      const resolved = onResolve(result);
-      if (isPromiseLike(resolved)) {
-        throw resolved;
-      }
-      return asyncResult.resolve(resolved);
+const resolveData = (key: any, value: any): ResolvedData => {
+  if (isPromiseLike(value)) {
+    const ar = asyncResult(value);
+    if (ar.loading) {
+      return { key, promise: ar };
     }
-    return asyncResult.resolve(result);
-  } catch (ex) {
-    if (!isPromiseLike(ex)) {
-      if (onReject) {
-        const data = onReject(ex);
-        return asyncResult.resolve(data);
-      }
-      return asyncResult.reject(ex);
-    }
-    const promise = ex;
-    return asyncResult(
-      new Promise((resolve, reject) => {
-        promise.then(
-          value => {
-            if (co?.cancelled()) {
-              return;
-            }
-            resolve(onResolve ? wrap(onResolve)(value) : value);
-          },
-          onReject
-            ? reason => {
-                if (co?.cancelled()) {
-                  return;
-                }
-                reject(wrap(onReject)(reason));
-              }
-            : undefined,
-        );
-      }),
-    );
+    return { key, data: ar.data, error: ar.error };
   }
+
+  if (typeof value === 'function') {
+    try {
+      return resolveData(key, value());
+    } catch (ex) {
+      return { key, error: ex };
+    }
+  }
+
+  return { key, data: value };
 };
 
-const nilLoadable = {} as Loadable<any>;
+export const resolveAwaitable = (
+  awaitable: any,
+  resolveSingle: (item: ResolvedData) => any,
+  resolveMultiple: (
+    result: any,
+    loading: (ResolvedData & { promise: AsyncResult<any> })[],
+    resolved: ResolvedData[],
+  ) => any,
+) => {
+  if (!awaitable) {
+    throw new Error('Awaitable object must be not null or undefined');
+  }
 
-const createWait =
-  <TLoadable extends boolean, TRace extends boolean>(
-    useLoadable: TLoadable,
-    race: TRace,
-  ) =>
-  <TAwaitable extends Awaitable<any>>(
-    awaitable: TAwaitable,
-  ): AwaitableData<TAwaitable, TLoadable, TRace> => {
-    const isSingle = !awaitable || typeof awaitable === 'function';
-    const collection = isSingle ? [awaitable] : awaitable;
-    const allEntries = Object.entries(collection);
-    const nonNullEntries = allEntries.filter(x => Boolean(x));
-    const promises: AsyncResult<any>[] = [];
-    const all: any = Array.isArray(collection) ? [] : {};
-    let last: any;
-    let resolvedCount = 0;
+  if (isPromiseLike(awaitable) || typeof awaitable === 'function') {
+    return resolveSingle(resolveData(null, awaitable));
+  }
 
-    const resolve = (result: AsyncResult) => {
-      if (useLoadable) {
-        if (result.loading) {
-          // tell current context should listen async result change event
-          trackable()?.add(result);
+  const keys = Object.keys(awaitable);
+  const result: any = Array.isArray(awaitable) ? [] : {};
+  const loading: (ResolvedData & { promise: AsyncResult<any> })[] = [];
+  const resolved: ResolvedData[] = [];
+
+  keys.forEach(key => {
+    const item = resolveData(key, awaitable[key]);
+    if (item.promise) {
+      loading.push(item as any);
+    } else {
+      resolved.push(item);
+    }
+  });
+
+  return resolveMultiple(result, loading, resolved);
+};
+
+const resolveAsyncItem = (item: ResolvedData) => {
+  if (item.promise) {
+    return scoped(item.promise);
+  }
+  if (item.error) {
+    return scoped(asyncResult.reject(item.error));
+  }
+  return scoped(asyncResult.resolve(item.data));
+};
+
+export const race: RaceFn = (awaitable: any) => {
+  let done = false;
+  return resolveAwaitable(
+    awaitable,
+    resolveAsyncItem,
+    (result, loading, resolved) => {
+      // handle first resolved item if any
+      if (resolved.length) {
+        const first = resolved[0];
+        if (first.error) {
+          return scoped(asyncResult.reject(first.error));
         }
 
-        return result;
+        result[first.key] = first.data;
+        return scoped(asyncResult.resolve(result));
       }
 
-      if (result.loading) {
-        promises.push(result);
-        return undefined;
-      }
+      const promises = loading.map(({ promise, key }) =>
+        promise.then(value => {
+          if (!done) {
+            done = true;
+            result[key] = value;
+          }
+        }),
+      );
 
-      if (result.error) {
-        throw result.error;
-      }
+      return scoped(asyncResult(Promise.race(promises).then(() => result)));
+    },
+  );
+};
 
-      resolvedCount++;
-
-      return result.data;
-    };
-
-    nonNullEntries.forEach(([key, item]) => {
-      let value: any;
-      // is state
-      if (typeof item === 'function') {
-        value = item();
-      } else {
-        value = item;
-      }
-      const result = asyncResult(value);
-      last = resolve(result);
-      all[key] = last;
-    });
-
-    if (useLoadable) {
-      allEntries.forEach(([key]) => {
-        if (!all[key]) {
-          all[key] = nilLoadable;
+export const all: AllFn = (awaitable: any) => {
+  return resolveAwaitable(
+    awaitable,
+    resolveAsyncItem,
+    (result, loading, resolved) => {
+      for (const item of resolved) {
+        // has any error
+        if (item.error) {
+          return scoped(asyncResult.reject(item.error));
         }
-      });
-    } else if (promises.length) {
-      if (race) {
-        if (!resolvedCount) {
-          throw Promise.race(promises).then(resolved =>
-            isSingle ? resolved[0] : all,
-          );
-        }
-      } else {
-        throw Promise.all(promises).then(resolved =>
-          isSingle ? resolved[0] : all,
-        );
+        result[item.key] = item.data;
       }
+
+      const promises = loading.map(({ promise, key }) =>
+        promise.then(value => {
+          result[key] = value;
+        }),
+      );
+
+      // not fulfilled
+      if (promises.length) {
+        return scoped(asyncResult(Promise.all(promises).then(() => result)));
+      }
+
+      // fulfilled
+      return scoped(asyncResult.resolve(result));
+    },
+  );
+};
+
+export const wait: WaitFn = (awaitable: any) => {
+  const resolveItem = (item: ResolvedData) => {
+    if (item.promise) {
+      throw item.promise;
     }
 
-    return isSingle ? last : all;
+    if (item.error) {
+      throw item.error;
+    }
+
+    return item.data;
   };
 
-const waitNone = createWait(true, false);
+  return resolveAwaitable(
+    awaitable,
+    resolveItem,
+    (result, loading, resolved) => {
+      // should handle resolved items first, then loading items
+      resolved.forEach(item => {
+        result[item.key] = resolveItem(item);
+      });
 
-const waitAll = createWait(false, false);
+      loading.forEach(item => {
+        result[item.key] = resolveItem(item);
+      });
 
-const waitAny = createWait(false, true);
+      return result;
+    },
+  );
+};
 
-export { waitNone, waitAll, waitAny };
+export const loadable: LoadableFn = (awaitable: any) => {
+  const track = trackable()?.add;
+
+  const resolveItem = (item: ResolvedData) => {
+    if (item.promise) {
+      track?.(item.promise);
+      return item.promise;
+    }
+
+    return { error: item.error, data: item.data };
+  };
+
+  return resolveAwaitable(
+    awaitable,
+    resolveItem,
+    (result, loading, resolved) => {
+      loading.forEach(item => {
+        result[item.key] = resolveItem(item);
+      });
+
+      resolved.forEach(item => {
+        result[item.key] = resolveItem(item);
+      });
+
+      return result;
+    },
+  );
+};
 
 const asyncResultProps = <T = any>(
   promise: Promise<T>,
@@ -239,11 +278,12 @@ const asyncResultProps = <T = any>(
       },
     );
   }
+
   return ar;
 };
 
 export const asyncResult = Object.assign(
-  <T>(promise: Promise<T>): AsyncResult<T> => {
+  <T = any>(promise: Promise<T>): AsyncResult<T> => {
     if (!isPromiseLike(promise)) {
       return asyncResult.resolve(promise);
     }
@@ -251,7 +291,7 @@ export const asyncResult = Object.assign(
     return asyncResultProps(promise, true, undefined, undefined);
   },
   {
-    resolve(value: any) {
+    resolve<T = any>(value: Promise<T> | T): AsyncResult<T> {
       if (isPromiseLike(value)) {
         return asyncResult(value);
       }
@@ -261,7 +301,12 @@ export const asyncResult = Object.assign(
       if (isPromiseLike(reason)) {
         return asyncResult(reason);
       }
-      return asyncResultProps(Promise.reject(reason), false, undefined, reason);
+      return asyncResultProps(
+        Promise.reject(reason).catch(NOOP),
+        false,
+        undefined,
+        reason,
+      );
     },
   },
 );

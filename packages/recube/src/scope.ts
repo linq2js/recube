@@ -1,4 +1,3 @@
-import { iterableWeakMap } from './iterableWeakMap';
 import { AnyFunc, Dictionary } from './types';
 
 export type ScopeEvents = 'onExit' | 'onEnter';
@@ -24,6 +23,8 @@ export type ScopeDef<T> = {
 
 export type ScopeSnapshot = {
   readonly type: 'snapshot';
+
+  (): WeakMap<any, any>[];
 
   /**
    * get scope instance of single scope definition
@@ -56,15 +57,28 @@ export type Scope = {
     { [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never },
     R,
   ];
+
+  <T>(snapshot: ScopeSnapshot, fn: () => T): T;
 };
 
-const activeScopes = iterableWeakMap();
+let activeScopeStack: WeakMap<any, ScopeDef<any>>[] = [];
+const SCOPE_SNAPSHOT_PROP = Symbol('scopeStack');
+
+const find = (key: any, stack: WeakMap<any, any>[]) => {
+  for (const item of stack) {
+    const value = item.get(key);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+};
 
 const createScope = (create: AnyFunc) => {
   let accessor: AnyFunc;
 
   const get = () => {
-    return activeScopes.get(accessor);
+    return find(accessor, activeScopeStack);
   };
 
   accessor = (...args: any[]) => {
@@ -76,15 +90,21 @@ const createScope = (create: AnyFunc) => {
       typeof snapshot === 'function' ? snapshot(accessor) : snapshot;
     const current = customScope ?? create();
     const { onEnter, onExit } = current ?? {};
-    const prev = get();
-    activeScopes.set(accessor, current);
+    const map = new WeakMap();
+    const prevStack = activeScopeStack;
+    map.set(accessor, current);
+    activeScopeStack = [map, ...activeScopeStack];
+
     try {
       if (typeof onEnter === 'function') {
         onEnter();
       }
+
       return [current, fn()] as const;
     } finally {
-      activeScopes.set(accessor, prev);
+      // restore prev stack
+      activeScopeStack = prevStack;
+
       if (typeof onExit === 'function') {
         onExit();
       }
@@ -95,34 +115,56 @@ const createScope = (create: AnyFunc) => {
 };
 
 export const scope: Scope = (...args: any[]): any => {
+  // scope()
   if (!args.length) {
-    const snapshot = activeScopes.clone();
-    return Object.assign(
-      (type: any) => {
-        if (!type) {
-          throw new Error('Invalid scope definition');
-        }
-        // is ScopeDef
-        if (typeof type === 'function') {
-          return snapshot.get(type);
-        }
-        if (Array.isArray(type)) {
-          return type.map(x => snapshot.get(x));
-        }
-        const obj: Dictionary = {};
-        Object.keys(type).forEach(key => {
-          obj[key] = snapshot.get(type[key]);
-        });
-        return obj;
-      },
-      { type: 'snapshot' },
-    );
+    let snapshotMethods = (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP];
+
+    if (!snapshotMethods) {
+      const snapshot = activeScopeStack;
+      snapshotMethods = Object.assign(
+        (type: any) => {
+          if (!type) {
+            return snapshot;
+          }
+          // is ScopeDef
+          if (typeof type === 'function') {
+            return find(type, snapshot);
+          }
+          if (Array.isArray(type)) {
+            return type.map(x => find(x, snapshot));
+          }
+          const obj: Dictionary = {};
+          Object.keys(type).forEach(key => {
+            obj[key] = find(type[key], snapshot);
+          });
+          return obj;
+        },
+        { type: 'snapshot' },
+      );
+    }
+    (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP] = snapshotMethods;
+
+    return snapshotMethods;
   }
 
+  // scope(create)
   if (args.length === 1) {
     return createScope(args[0]);
   }
 
+  // scope(snapshot, fn)
+  if (typeof args[0] === 'function') {
+    const [snapshot, fn] = args as [ScopeSnapshot, AnyFunc];
+    const prevStack = activeScopeStack;
+    activeScopeStack = snapshot();
+    try {
+      return fn();
+    } finally {
+      activeScopeStack = prevStack;
+    }
+  }
+
+  // scope(defs, fn)
   const [scopeTypes, fn] = args as [Record<string, AnyFunc>, AnyFunc];
   const scopes: Dictionary = {};
   const keys = Object.keys(scopeTypes);
@@ -138,4 +180,43 @@ export const scope: Scope = (...args: any[]): any => {
       fn,
     )(),
   ];
+};
+
+export const scoped = <T extends Promise<any>>(value: T): T => {
+  const snapshot = scope();
+
+  // same scope
+  if ((value as any)[SCOPE_SNAPSHOT_PROP] === snapshot) {
+    return value;
+  }
+
+  const methods = {
+    finally: value.finally?.bind(value),
+    then: value.then?.bind(value),
+    catch: value.catch?.bind(value),
+  };
+  const wrap = (fn?: AnyFunc) => {
+    if (!fn) {
+      return undefined;
+    }
+    return (...args: any[]) => {
+      return scope(snapshot, () => fn(...args));
+    };
+  };
+  return Object.assign(value, {
+    [SCOPE_SNAPSHOT_PROP]: snapshot,
+    then(...args: any[]) {
+      return scoped(methods.then(wrap(args[0]), wrap(args[1])));
+    },
+    catch: methods.catch
+      ? (...args: any[]) => {
+          return scoped(methods.catch(wrap(args[0])));
+        }
+      : undefined,
+    finally: methods.finally
+      ? (...args: any[]) => {
+          return scoped(methods.finally(wrap(args[0])));
+        }
+      : undefined,
+  });
 };

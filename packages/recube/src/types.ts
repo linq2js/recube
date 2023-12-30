@@ -182,18 +182,6 @@ export type Listener<T = any> = (args: T) => void;
 
 export type Subscribe<T = void> = (listener: Listener<T>) => VoidFunction;
 
-export type AwaitableItem<TAnyPromise extends boolean = false> =
-  TAnyPromise extends true
-    ? Promise<any> | State<any, void> | null | undefined
-    : AsyncResult | State<any, void>;
-
-export type Awaitable<TAnyPromise extends boolean = false> =
-  | AwaitableItem<TAnyPromise>
-  | readonly AwaitableItem<TAnyPromise>[]
-  | {
-      [key: string]: AwaitableItem<TAnyPromise>;
-    };
-
 export type Loadable<T> =
   | { loading: false; data: T; error: undefined }
   | { loading: false; error: any; data: undefined }

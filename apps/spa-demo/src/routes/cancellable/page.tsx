@@ -1,5 +1,5 @@
 import { ChangeEvent, Suspense, useState } from 'react';
-import { action, canceler, state, waitAll } from 'recube';
+import { action, cancellable, state, wait } from 'recube';
 import { cube } from 'recube/react';
 
 export type Todo = {
@@ -12,7 +12,7 @@ const todoState = state(undefined)
   // handle load action
   .when(load, async (_, result) => {
     const url = `https://jsonplaceholder.typicode.com/todos/${result}?_delay=3000`;
-    const signal = canceler.current()?.signal();
+    const signal = cancellable()?.signal();
     // pass signal of current canceler
     return fetch(url, { signal }).then(res => res.json() as Promise<Todo>);
   });
@@ -33,7 +33,7 @@ const TodoForm = () => {
 };
 
 const TodoInfo = cube(() => {
-  const todo = waitAll(todoState);
+  const todo = wait(todoState);
   return <pre>{JSON.stringify(todo, null, 2)}</pre>;
 });
 

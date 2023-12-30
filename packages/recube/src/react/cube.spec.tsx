@@ -3,7 +3,7 @@ import { PropsWithChildren, Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { action } from '../action';
 import { state } from '../state';
-import { delay, waitAll, waitAny, waitNone } from '../async';
+import { delay, loadable, race, wait } from '../async';
 import { swallowError } from '../testUtils';
 import { alter } from '../alter';
 import { cube } from './cube';
@@ -82,7 +82,7 @@ describe('rendering', () => {
     getByText('2');
   });
 
-  test('waitAll: success', async () => {
+  test('wait all: success', async () => {
     const incrementReducer = (prev: number) => prev + 1;
     const increment = action();
     const state1 = state(async () => {
@@ -96,7 +96,7 @@ describe('rendering', () => {
     }).when(increment, alter(incrementReducer));
 
     const Comp = cube(() => {
-      const [s1, s2] = waitAll([state1, state2]);
+      const [s1, s2] = wait([state1, state2]);
 
       return <div>{s1 + s2}</div>;
     });
@@ -120,7 +120,7 @@ describe('rendering', () => {
     getByText('5');
   });
 
-  test('waitAll: error #1', async () => {
+  test('wait all: error #1', async () => {
     const cond = true;
     const state1 = state(async () => {
       if (cond) {
@@ -135,7 +135,7 @@ describe('rendering', () => {
     });
 
     const Comp = cube(() => {
-      const [s1, s2] = waitAll([state1, state2]);
+      const [s1, s2] = wait([state1, state2]);
       return <div>{s1 + s2}</div>;
     });
 
@@ -152,7 +152,7 @@ describe('rendering', () => {
     getByText('error');
   });
 
-  test('waitAll: error #2', async () => {
+  test('wait all: error #2', async () => {
     const state1 = state((): number => {
       throw new Error('error');
     });
@@ -163,7 +163,7 @@ describe('rendering', () => {
     });
 
     const Comp = cube(() => {
-      const [s1, s2] = waitAll([state1, state2] as const);
+      const [s1, s2] = wait([state1, state2] as const);
       return <div>{s1 + s2}</div>;
     });
 
@@ -176,7 +176,7 @@ describe('rendering', () => {
     getByText('error');
   });
 
-  test('waitAny: success', async () => {
+  test('loadable: success', async () => {
     const state1 = state(async () => {
       await delay(50);
       return 1;
@@ -188,7 +188,7 @@ describe('rendering', () => {
     });
 
     const Comp = cube(() => {
-      const [s1, s2] = waitAny([state1, state2]);
+      const [s1, s2] = wait(race([state1, state2]));
       return <div>{s1 || s2}</div>;
     });
 
@@ -209,7 +209,7 @@ describe('rendering', () => {
     const doSomething = action(() => delay(10));
 
     const Comp = cube(() => {
-      const { loading } = waitNone(doSomething.result);
+      const { loading } = loadable(doSomething.result);
       return <div>{loading ? 'loading' : 'none'}</div>;
     });
     const { getByText } = render(<Comp />);
@@ -231,7 +231,7 @@ describe('rendering', () => {
     const doSomething = action<number>();
 
     const Comp = cube(() => {
-      const { data } = waitNone(doSomething.result);
+      const { data } = loadable(doSomething.result);
       return <div>{data ?? 'none'}</div>;
     });
     const { getByText } = render(<Comp />);

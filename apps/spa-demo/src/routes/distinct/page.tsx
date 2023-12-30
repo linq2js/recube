@@ -4,9 +4,7 @@ import { cube } from 'recube/react';
 
 const incrementOnChange = action<number>();
 const fastForward = action();
-const mediaPlayerInfo = state({ position: 0 })
-  // using deep equal to compare
-  .distinct(equal)
+const mediaPlayerInfo = state({ position: 0 }, { equal })
   .when(incrementOnChange, (_, position) => ({ position }))
   .when(fastForward, prev => ({ position: prev.position + 1 }));
 

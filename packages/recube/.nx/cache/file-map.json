@@ -4,7 +4,6 @@
   "deps": {
     "@wry/equality": "0.5.7",
     "immer": "10.0.3",
-    "@modern-js/module-tools": "2.42.1",
     "@modern-js/eslint-config": "2.42.1",
     "typescript": "~5.0.4",
     "@types/node": "~16.11.7",
@@ -19,13 +18,11 @@
     "@testing-library/react": "14.1.2",
     "@testing-library/react-hooks": "8.0.1",
     "jest-environment-jsdom": "29.7.0",
-    "react-error-boundary": "4.0.11"
+    "react-error-boundary": "4.0.11",
+    "shx": "0.3.4",
+    "json": "11.0.0"
   },
-  "pathMappings": {
-    "@/*": [
-      "./src/*"
-    ]
-  },
+  "pathMappings": {},
   "nxJsonPlugins": [],
   "fileMap": {
     "projectFileMap": {},
@@ -56,7 +53,7 @@
       },
       {
         "file": ".nx/cache/file-map.json",
-        "hash": "6385446070623471907"
+        "hash": "16302174900324063661"
       },
       {
         "file": ".nx/cache/project-graph.json",
@@ -68,7 +65,7 @@
       },
       {
         "file": "README.md",
-        "hash": "5802097677137111339"
+        "hash": "16666954348614561865"
       },
       {
         "file": "beforeTest.js",
@@ -76,7 +73,7 @@
       },
       {
         "file": "jest.config.js",
-        "hash": "3670339697759760790"
+        "hash": "8400304543646671393"
       },
       {
         "file": "modern.config.ts",
@@ -84,75 +81,111 @@
       },
       {
         "file": "package.json",
-        "hash": "16513435899314589385"
+        "hash": "13278075519170995505"
       },
       {
         "file": "src/.eslintrc.js",
         "hash": "13578558015896749011"
       },
       {
-        "file": "src/abortController.spec.ts",
-        "hash": "13358067951797563482"
-      },
-      {
-        "file": "src/abortController.ts",
-        "hash": "14365436333425581532"
-      },
-      {
         "file": "src/action.spec.ts",
-        "hash": "1841589972710412652"
+        "hash": "4371296145574913890"
       },
       {
         "file": "src/action.ts",
-        "hash": "15701343414160319050"
+        "hash": "422275440038259960"
+      },
+      {
+        "file": "src/alter.spec.ts",
+        "hash": "4575813695132894126"
+      },
+      {
+        "file": "src/alter.ts",
+        "hash": "13658001573311524013"
       },
       {
         "file": "src/async.spec.ts",
-        "hash": "8947610656618095383"
+        "hash": "5290911172004766179"
       },
       {
         "file": "src/async.ts",
-        "hash": "15070461362445065174"
+        "hash": "7682889873826445011"
+      },
+      {
+        "file": "src/batchScope.ts",
+        "hash": "13500776455527057875"
+      },
+      {
+        "file": "src/cancellable.spec.ts",
+        "hash": "5976601663879438157"
+      },
+      {
+        "file": "src/cancellable.ts",
+        "hash": "11670201728715467846"
       },
       {
         "file": "src/checkTypes.ts",
-        "hash": "711970645378191926"
+        "hash": "362310941174252072"
       },
       {
-        "file": "src/cube.spec.tsx",
-        "hash": "7668708679201693060"
+        "file": "src/createAction.ts",
+        "hash": "1008566522924617962"
       },
       {
-        "file": "src/cube.tsx",
-        "hash": "12714414165065820309"
+        "file": "src/createState.ts",
+        "hash": "8597394671464681638"
+      },
+      {
+        "file": "src/disposable.ts",
+        "hash": "17517791669337325570"
       },
       {
         "file": "src/effect.ts",
-        "hash": "9474778723009677589"
+        "hash": "5671149462632198546"
       },
       {
         "file": "src/emitter.ts",
-        "hash": "5064799047960177553"
-      },
-      {
-        "file": "src/hooks.ts",
-        "hash": "15477657760109437258"
+        "hash": "6137198817516065659"
       },
       {
         "file": "src/index.ts",
-        "hash": "8779484122328640216"
+        "hash": "4844226503356964155"
       },
       {
-        "file": "src/intercept.ts",
-        "hash": "2995965988745331953"
+        "file": "src/iterableWeakMap.ts",
+        "hash": "14130838297486779390"
+      },
+      {
+        "file": "src/lazyValue.spec.ts",
+        "hash": "7244603535823760760"
+      },
+      {
+        "file": "src/lazyValue.ts",
+        "hash": "7083937056568191347"
+      },
+      {
+        "file": "src/listenable.spec.ts",
+        "hash": "7774843156225874487"
+      },
+      {
+        "file": "src/listenable.ts",
+        "hash": "8603145121572546413"
+      },
+      {
+        "file": "src/memoize.spec.ts",
+        "hash": "8454426172871154526"
+      },
+      {
+        "file": "src/memoize.ts",
+        "hash": "15636895194684623876"
       },
       {
         "file": "src/middleware.spec.ts",
-        "hash": "2675589535531186983"
+        "hash": "8629487893257942937"
       },
       {
         "file": "src/middleware.ts",
-        "hash": "16246888410539135608"
+        "hash": "6147092350293601753"
       },
       {
         "file": "src/modern-app-env.d.ts",
@@ -160,27 +193,67 @@
       },
       {
         "file": "src/objectKeyedMap.ts",
-        "hash": "8551356444516964159"
+        "hash": "17636220296967831882"
       },
       {
-        "file": "src/optimizing.spec.tsx",
-        "hash": "9637700099939138610"
+        "file": "src/performance.spec.ts",
+        "hash": "3895872201211904330"
+      },
+      {
+        "file": "src/react/cube.spec.tsx",
+        "hash": "3643442292162610275"
+      },
+      {
+        "file": "src/react/cube.ts",
+        "hash": "14439364018934862995"
+      },
+      {
+        "file": "src/react/index.ts",
+        "hash": "1221773219326462640"
+      },
+      {
+        "file": "src/react/optimizing.spec.tsx",
+        "hash": "3537378530226306464"
+      },
+      {
+        "file": "src/react/stable.ts",
+        "hash": "10707831598260995858"
+      },
+      {
+        "file": "src/react/useComputed.spec.ts",
+        "hash": "1030346649843883999"
+      },
+      {
+        "file": "src/react/useComputed.ts",
+        "hash": "5538318405255139159"
+      },
+      {
+        "file": "src/react/useRerender.ts",
+        "hash": "15657281899738757154"
+      },
+      {
+        "file": "src/react/useStable.spec.tsx",
+        "hash": "1145402234129026032"
+      },
+      {
+        "file": "src/react/useStable.ts",
+        "hash": "2991474582267541919"
+      },
+      {
+        "file": "src/scope.spec.ts",
+        "hash": "14158623845707987702"
       },
       {
         "file": "src/scope.ts",
-        "hash": "16570509742787140683"
-      },
-      {
-        "file": "src/stable.ts",
-        "hash": "584134061156269754"
+        "hash": "14828761322580305976"
       },
       {
         "file": "src/state.spec.ts",
-        "hash": "15787920733520776407"
+        "hash": "7726204839198269149"
       },
       {
         "file": "src/state.ts",
-        "hash": "16393133708704751934"
+        "hash": "10027515846333460658"
       },
       {
         "file": "src/test/resetModules/count.spec.ts",
@@ -188,27 +261,31 @@
       },
       {
         "file": "src/test/resetModules/count.ts",
-        "hash": "1857932046745419026"
+        "hash": "17717841136387604948"
       },
       {
         "file": "src/test/resetModules/doubledCount.ts",
-        "hash": "3160730975975440872"
+        "hash": "8004286604817070139"
       },
       {
         "file": "src/testUtils.ts",
         "hash": "1768756951673926539"
       },
       {
+        "file": "src/trackable.ts",
+        "hash": "9131158669142844207"
+      },
+      {
         "file": "src/types.ts",
-        "hash": "16555968484498739632"
+        "hash": "14144460277153555788"
       },
       {
         "file": "src/utils.ts",
-        "hash": "4786354555860017179"
+        "hash": "9471580106361435072"
       },
       {
         "file": "tsconfig.json",
-        "hash": "6265388341891197234"
+        "hash": "6894081294464127893"
       }
     ]
   }

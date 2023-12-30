@@ -1,5 +1,5 @@
 import { action } from './action';
-import { delay, waitAll, waitAny, waitNone } from './async';
+import { delay, loadable, wait } from './async';
 import { state } from './state';
 import { withResult, alter } from './alter';
 
@@ -85,30 +85,13 @@ export const checkTypes = {
       },
     ],
   },
-  state: {
-    action: [
-      () => {
-        const count = state(0);
-        const { increment, decrement } = count.action({
-          increment(prev) {
-            return prev + 1;
-          },
-          decrement(prev, by: number) {
-            return prev + by;
-          },
-        });
-        increment();
-        decrement(1);
-        console.log(increment, decrement);
-      },
-    ],
-  },
+  state: {},
   waitAll: [
     () => {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const [s1, s2] = waitAll([state1, state2] as const);
+      const [s1, s2] = wait([state1, state2] as const);
 
       return s1 * s2;
     },
@@ -116,7 +99,7 @@ export const checkTypes = {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const values = waitAll({ state1, state2 });
+      const values = wait({ state1, state2 });
 
       return values.state1 * values.state2;
     },
@@ -126,7 +109,7 @@ export const checkTypes = {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const [s1, s2] = waitAny([state1, state2] as const);
+      const [s1, s2] = wait([state1, state2] as const);
 
       return (s1 ?? 0) * (s2 ?? 0);
     },
@@ -134,7 +117,7 @@ export const checkTypes = {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const values = waitAny({ state1, state2 });
+      const values = wait({ state1, state2 });
 
       return (values.state1 ?? 0) * (values.state2 ?? 0);
     },
@@ -144,7 +127,7 @@ export const checkTypes = {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const [s1, s2] = waitNone([state1, state2] as const);
+      const [s1, s2] = loadable([state1, state2] as const);
 
       if (!s1.loading) {
         return s1.data ?? 0 * 2;
@@ -156,7 +139,7 @@ export const checkTypes = {
       const state1 = state(1);
       const state2 = state(async () => 2);
 
-      const values = waitNone({ state1, state2 });
+      const values = loadable({ state1, state2 });
 
       return (values.state1.data ?? 0) * (values.state2.data ?? 0);
     },

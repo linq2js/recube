@@ -1,5 +1,5 @@
 import { delay } from './async';
-import { scope } from './scope';
+import { scope, scoped } from './scope';
 
 describe('scope', () => {
   test('using snapshot with async', async () => {
@@ -37,5 +37,20 @@ describe('scope', () => {
     });
 
     expect(data).toEqual(['Ging', 'Gon', 'Ging']);
+  });
+
+  test('snapshot should be equal to other if they have same scope stack', () => {
+    const s1 = scope();
+    const s2 = scope();
+
+    expect(s1).toBe(s2);
+  });
+
+  test('should not overwrite promise methods if it has same snapshot', () => {
+    const p = Promise.resolve(1);
+    const s1 = scoped(p).then;
+    const s2 = scoped(p).then;
+
+    expect(s1).toBe(s2);
   });
 });

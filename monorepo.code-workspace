@@ -1,8 +1,8 @@
 {
   "folders": [
     {
-      "name": "recube-demo",
-      "path": "apps/recube-demo/"
+      "name": "spa-demo",
+      "path": "apps/spa-demo/"
     },
     {
       "name": "recube",
@@ -31,10 +31,7 @@
       "**/node_modules": true
     },
     //
-    "editor.rulers": [
-      80,
-      120
-    ],
+    "editor.rulers": [80, 120],
     "files.eol": "\n",
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
@@ -72,7 +69,7 @@
     },
     //
     "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": true
+      "source.fixAll.eslint": "explicit"
     },
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "javascript.format.enable": false,
