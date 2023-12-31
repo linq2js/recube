@@ -12,7 +12,7 @@ import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
 import { createState } from './createState';
-import { batch } from './batchScope';
+import { batch } from './batch';
 
 const DEFAULT_CALLING = () => false;
 

@@ -1,10 +1,11 @@
 import { scope } from './scope';
 
-export const batchScope = scope(() => {
+export const batch = scope(() => {
   const updaters = new Set<VoidFunction>();
   let count = 0;
+
   return {
-    addUpdater(updater: VoidFunction) {
+    add(updater: VoidFunction) {
       updaters.add(updater);
       return true;
     },
@@ -20,8 +21,3 @@ export const batchScope = scope(() => {
     },
   };
 });
-
-export const batch = <T>(fn: () => T): T => {
-  const [, result] = batchScope(fn);
-  return result;
-};

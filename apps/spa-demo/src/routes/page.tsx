@@ -8,6 +8,7 @@ const links = {
   '/cancellable': 'Cancellable',
   '/conditionalDependency': 'Conditional Dependency',
   '/distinct': 'Distinct',
+  '/loadable': 'Loadable',
 } as Record<string, string>;
 
 const IndexPage = () => (

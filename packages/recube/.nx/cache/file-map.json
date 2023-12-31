@@ -53,7 +53,7 @@
       },
       {
         "file": ".nx/cache/file-map.json",
-        "hash": "16541465195102981949"
+        "hash": "17259189519194456881"
       },
       {
         "file": ".nx/cache/project-graph.json",
@@ -245,7 +245,7 @@
       },
       {
         "file": "src/scope.ts",
-        "hash": "14654107782383310082"
+        "hash": "8217010144429438994"
       },
       {
         "file": "src/state.spec.ts",
@@ -277,7 +277,7 @@
       },
       {
         "file": "src/types.ts",
-        "hash": "14144460277153555788"
+        "hash": "986884965143272512"
       },
       {
         "file": "src/utils.ts",

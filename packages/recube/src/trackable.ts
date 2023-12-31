@@ -5,6 +5,9 @@ type Tracker = {
   track: (listenable: Listenable) => void;
 };
 
+/**
+ * trackable scope
+ */
 export const trackable = scope(() => {
   const allListenableList = new Set<Listenable>();
   const activeWatchers = new Set<Tracker>();

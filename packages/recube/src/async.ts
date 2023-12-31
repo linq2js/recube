@@ -27,12 +27,14 @@ export type WaitFn = <A extends AwaitableGroup | Exclude<Awaitable, undefined>>(
 ) => AwaitableData<A>;
 
 export type LoadableFn = <
-  T extends AwaitableGroup | Exclude<Awaitable, undefined>,
+  T extends AwaitableGroup | Exclude<Awaitable, undefined> | undefined,
 >(
   awaitable: T,
-) => T extends Awaitable<infer D>
+) => LoadableFnResult<NonNullable<T>>;
+
+export type LoadableFnResult<T> = T extends Awaitable<infer D>
   ? Loadable<D>
-  : T extends AwaitableGroup
+  : NonNullable<T> extends AwaitableGroup
   ? {
       [key in keyof T]: T[key] extends Awaitable<infer D>
         ? Loadable<D>
@@ -213,6 +215,10 @@ export const wait: WaitFn = (awaitable: any) => {
 };
 
 export const loadable: LoadableFn = (awaitable: any) => {
+  if (typeof awaitable === 'undefined' || awaitable === null) {
+    return {};
+  }
+
   const track = trackable()?.add;
 
   const resolveItem = (item: ResolvedData) => {
