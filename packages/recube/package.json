@@ -1,11 +1,23 @@
 {
   "name": "recube",
-  "version": "2.22.0",
+  "version": "2.23.0",
   "types": "dist/ts/index.d.ts",
   "main": "dist/ts/index.js",
   "private": true,
   "files": [
     "**"
+  ],
+  "keywords": [
+    "state management",
+    "redux",
+    "reactive",
+    "flux",
+    "react",
+    "vanilla-js",
+    "async",
+    "loadable",
+    "state",
+    "action"
   ],
   "exports": {
     "./package.json": "./package.json",
