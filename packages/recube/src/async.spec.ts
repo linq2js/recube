@@ -1,6 +1,6 @@
 import { action } from './action';
 import { alter } from './alter';
-import { asyncResult, delay, loadable, wait, chain } from './async';
+import { async, delay, loadable, wait, chain } from './async';
 import { state } from './state';
 
 describe('async', () => {
@@ -68,8 +68,8 @@ describe('loadable', () => {
   test('loadable: array', () => {
     const [l1, l2, l3] = loadable([
       undefined,
-      asyncResult.resolve(1),
-      asyncResult.reject('error'),
+      async.resolve(1),
+      async.reject('error'),
     ] as const);
 
     expect(l1).toEqual({ data: undefined });
@@ -80,8 +80,8 @@ describe('loadable', () => {
   test('loadable: object', () => {
     const r = loadable({
       l1: undefined,
-      l2: asyncResult.resolve(1),
-      l3: asyncResult.reject('error'),
+      l2: async.resolve(1),
+      l3: async.reject('error'),
     });
 
     expect(r.l1).toEqual({ data: undefined });
@@ -92,7 +92,7 @@ describe('loadable', () => {
 
 describe('wait', () => {
   test('wait: fulfilled', () => {
-    const r = wait([asyncResult.resolve(1), asyncResult.resolve(true)]);
+    const r = wait([async.resolve(1), async.resolve(true)]);
     expect(r).toEqual([1, true]);
   });
 
@@ -101,6 +101,6 @@ describe('wait', () => {
   });
 
   test('wait: error', () => {
-    expect(() => wait(asyncResult.reject('error'))).toThrow('error');
+    expect(() => wait(async.reject('error'))).toThrow('error');
   });
 });

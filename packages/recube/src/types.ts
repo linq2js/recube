@@ -14,8 +14,14 @@ export type Dictionary<
   K extends string | symbol | number = string,
 > = Record<K, V>;
 
-export type StateContext<P> = {
+export type StateContext<T, P> = {
   readonly params: P;
+
+  optimistic: <TNext>(
+    value: TNext,
+    valueOrLoader: PromiseLike<TNext> | (() => T | TNext | PromiseLike<TNext>),
+    rollback?: (current: T, error: unknown) => T,
+  ) => TNext;
 };
 
 export type StaleOptions<TValue, TData> = {
@@ -31,7 +37,7 @@ export type Listenable<T = any> = {
 export type Reducer<TValue, TParams, TData, TNext> = (
   value: TValue,
   result: TData,
-  context: StateContext<TParams>,
+  context: StateContext<TValue, TParams>,
 ) => TNext;
 
 export type Combine<T, N> = T extends N ? (N extends T ? T : T | N) : T | N;
@@ -40,7 +46,7 @@ export type MutableState<TValue, TParams = void> = State<TValue, TParams> & {
   set: (
     valueOrReducer:
       | TValue
-      | ((prev: TValue, context: StateContext<TParams>) => TValue),
+      | ((prev: TValue, context: StateContext<TValue, TParams>) => TValue),
     params: TParams,
   ) => void;
 };
@@ -214,11 +220,11 @@ export type CreateState = <T, P = void>(
   options?: StateOptions<NoInfer<T>>,
 ) => MutableState<T, P>;
 
-export type ExtraActions<TPayload> = {
+export type ExtraActions<TData, TPayload> = {
   /**
    * this action will be dispatched whenever the action body returns promise object
    */
-  loading: Action<{ payload: TPayload }, void>;
+  loading: Action<{ payload: TPayload; result: PromiseLike<TData> }, void>;
 
   /**
    * this action will be dispatched whenever the action body throws an error or returns rejected promise object
@@ -227,10 +233,10 @@ export type ExtraActions<TPayload> = {
 };
 
 export type CreateAction = {
-  <TData = void>(): Action<TData, TData> & ExtraActions<TData>;
+  <TData = void>(): Action<TData, TData> & ExtraActions<TData, TData>;
   <TData, TPayload = void>(body: (payload: TPayload) => TData): Action<
     TData,
     TPayload
   > &
-    ExtraActions<TPayload>;
+    ExtraActions<TData, TPayload>;
 };

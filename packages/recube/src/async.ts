@@ -60,7 +60,7 @@ const SCOPE_STACK_PROP = Symbol('scopeStack');
 
 const resolveData = (key: any, value: any): ResolvedData => {
   if (isPromiseLike(value)) {
-    const ar = asyncResult(value);
+    const ar = async(value);
     if (ar.loading) {
       return { key, promise: ar };
     }
@@ -117,9 +117,9 @@ const resolveAsyncItem = (item: ResolvedData) => {
     return scoped(item.promise);
   }
   if (item.error) {
-    return scoped(asyncResult.reject(item.error));
+    return scoped(async.reject(item.error));
   }
-  return scoped(asyncResult.resolve(item.data));
+  return scoped(async.resolve(item.data));
 };
 
 export const race: RaceFn = (awaitable: any) => {
@@ -132,11 +132,11 @@ export const race: RaceFn = (awaitable: any) => {
       if (resolved.length) {
         const first = resolved[0];
         if (first.error) {
-          return scoped(asyncResult.reject(first.error));
+          return scoped(async.reject(first.error));
         }
 
         result[first.key] = first.data;
-        return scoped(asyncResult.resolve(result));
+        return scoped(async.resolve(result));
       }
 
       const promises = loading.map(({ promise, key }) =>
@@ -148,7 +148,7 @@ export const race: RaceFn = (awaitable: any) => {
         }),
       );
 
-      return scoped(asyncResult(Promise.race(promises).then(() => result)));
+      return scoped(async(Promise.race(promises).then(() => result)));
     },
   );
 };
@@ -161,7 +161,7 @@ export const all: AllFn = (awaitable: any) => {
       for (const item of resolved) {
         // has any error
         if (item.error) {
-          return scoped(asyncResult.reject(item.error));
+          return scoped(async.reject(item.error));
         }
         result[item.key] = item.data;
       }
@@ -174,11 +174,11 @@ export const all: AllFn = (awaitable: any) => {
 
       // not fulfilled
       if (promises.length) {
-        return scoped(asyncResult(Promise.all(promises).then(() => result)));
+        return scoped(async(Promise.all(promises).then(() => result)));
       }
 
       // fulfilled
-      return scoped(asyncResult.resolve(result));
+      return scoped(async.resolve(result));
     },
   );
 };
@@ -290,10 +290,10 @@ const asyncResultProps = <T = any>(
   return ar;
 };
 
-export const asyncResult = Object.assign(
+export const async = Object.assign(
   <T = any>(promise: Promise<T>): AsyncResult<T> => {
     if (!isPromiseLike(promise)) {
-      return asyncResult.resolve(promise);
+      return async.resolve(promise);
     }
 
     return asyncResultProps(promise, true, undefined, undefined);
@@ -301,13 +301,13 @@ export const asyncResult = Object.assign(
   {
     resolve<T = any>(value: Promise<T> | T): AsyncResult<T> {
       if (isPromiseLike(value)) {
-        return asyncResult(value);
+        return async(value);
       }
       return asyncResultProps(Promise.resolve(value), false, value, undefined);
     },
     reject(reason: any) {
       if (isPromiseLike(reason)) {
-        return asyncResult(reason);
+        return async(reason);
       }
       return asyncResultProps(
         Promise.reject(reason).catch(NOOP),
@@ -483,7 +483,7 @@ export const chain: Chain = (initial: any, ...funcs: AnyFunc[]) => {
 
       Object.entries(result).forEach(([key, value]) => {
         if (isPromiseLike(value)) {
-          const ar = asyncResult(value);
+          const ar = async(value);
           if (ar.error) {
             throw ar.error;
           }

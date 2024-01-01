@@ -9,5 +9,5 @@ export * from './listenable';
 export * from './objectKeyedMap';
 export * from './alter';
 export * from './memoize';
-export { batch } from './batch';
+export { batchable as batch } from './batchable';
 export { state } from './state';

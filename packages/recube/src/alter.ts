@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { NoInfer } from './types';
-import { asyncResult, isPromiseLike } from './async';
+import { async, isPromiseLike } from './async';
 import { isObject } from './utils';
 
 export type PropsOf<T> = T extends Promise<infer D> ? keyof D : keyof T;
@@ -109,7 +109,7 @@ const alterValue =
     };
 
     if (isPromiseLike(value)) {
-      const ar = asyncResult(value);
+      const ar = async(value);
 
       if (ar.error) {
         return ar as any;
@@ -120,7 +120,7 @@ const alterValue =
       }
 
       const next = reducerWrapper(ar.data);
-      return asyncResult.resolve(next) as any;
+      return async.resolve(next) as any;
     }
 
     return reducerWrapper(value) as any;

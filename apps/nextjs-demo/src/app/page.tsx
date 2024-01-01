@@ -8,6 +8,7 @@ export default function Home() {
       <Log />
       <Counter />
       <Link href="/other">Other</Link>
+      <Link href="/rsc">RSC</Link>
     </main>
   );
 }

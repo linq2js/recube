@@ -9254,7 +9254,7 @@ rechoir@^0.6.2:
     resolve "^1.1.6"
 
 recube@*, "recube@file:/Users/ginguyen/Desktop/Projects/my/recube/packages/recube":
-  version "2.21.0"
+  version "2.22.0"
   resolved "file:packages/recube"
   dependencies:
     "@wry/equality" "0.5.7"

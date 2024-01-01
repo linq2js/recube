@@ -1,4 +1,4 @@
-import { createState } from './createState';
+import { createStateDef } from './createState';
 import { StateOptions } from './types';
 
 /**
@@ -11,5 +11,5 @@ export const state = <T, P = void>(
   init: T | ((params: P) => T),
   stateOptions?: StateOptions<T>,
 ) => {
-  return createState(init, stateOptions);
+  return createStateDef(init, stateOptions);
 };

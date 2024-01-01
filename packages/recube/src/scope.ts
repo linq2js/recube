@@ -39,27 +39,32 @@ export type ScopeSnapshot = {
   };
 };
 
-export type Scope = {
-  /**
-   * get snapshot of all scope instances
-   */
-  (): ScopeSnapshot;
+/**
+ * get snapshot
+ */
+export type GetSnapshot = () => ScopeSnapshot;
 
-  /**
-   * create a scope definition
-   */
-  <T extends Dictionary>(create: () => T): ScopeDef<T>;
+/**
+ * create a scope
+ */
+export type CreateScopeDef = <T extends Dictionary>(
+  create: () => T,
+) => ScopeDef<T>;
 
-  /**
-   * execute a function with scope instances that are created from specified scope definitions
-   */
-  <T extends Dictionary<ScopeDef<any>>, R>(defs: T, fn: () => R): [
-    { [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never },
-    R,
-  ];
+/**
+ * use scope with specified fn
+ */
+export type UseScope = <T extends Dictionary<ScopeDef<any>>, R>(
+  defs: T,
+  fn: () => R,
+) => [{ [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never }, R];
 
-  <T>(snapshot: ScopeSnapshot, fn: () => T): T;
-};
+/**
+ * use snapshot with specified fn
+ */
+export type UseSnapshot = <T>(snapshot: ScopeSnapshot, fn: () => T) => T;
+
+export type Scope = GetSnapshot & CreateScopeDef & UseScope & UseSnapshot;
 
 /**
  * Storing the active scopes as stack. The structure is as follows, the active is the first:
@@ -96,15 +101,18 @@ const createScope = (create: AnyFunc) => {
     if (!args.length) {
       return get();
     }
-    const [fn, snapshot] = args;
+    const [fn, snapshot, initialScopeMap] = args;
     const customScope =
       typeof snapshot === 'function' ? snapshot(accessor) : snapshot;
     const current = customScope ?? create();
     const { onEnter, onExit } = current ?? {};
-    const map = new WeakMap();
+    let scopeMap: Map<any, any> = initialScopeMap;
     const prevStack = activeScopeStack;
-    map.set(accessor, current);
-    activeScopeStack = [map, ...activeScopeStack];
+    if (!scopeMap) {
+      scopeMap = new Map();
+      activeScopeStack = [scopeMap, ...activeScopeStack];
+    }
+    scopeMap.set(accessor, current);
 
     try {
       if (typeof onEnter === 'function') {
@@ -179,16 +187,23 @@ export const scope: Scope = (...args: any[]): any => {
   const [scopeTypes, fn] = args as [Record<string, AnyFunc>, AnyFunc];
   const scopes: Dictionary = {};
   const keys = Object.keys(scopeTypes);
+  const prevStack = activeScopeStack;
+  const scopeMap = new Map();
+  activeScopeStack = [scopeMap, ...activeScopeStack];
 
-  return [
-    scopes,
-    keys.reduceRight(
-      (next, key) => () => {
-        const [scope, result] = scopeTypes[key](next);
-        scopes[key] = scope;
-        return result;
-      },
-      fn,
-    )(),
-  ];
+  try {
+    return [
+      scopes,
+      keys.reduceRight(
+        (next, key) => () => {
+          const [scope, result] = scopeTypes[key](next, undefined, scopeMap);
+          scopes[key] = scope;
+          return result;
+        },
+        fn,
+      )(),
+    ];
+  } finally {
+    activeScopeStack = prevStack;
+  }
 };

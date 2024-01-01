@@ -9,9 +9,9 @@ import {
 } from './types';
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
-import { asyncResult, isPromiseLike } from './async';
+import { async, isPromiseLike } from './async';
 import { trackable } from './trackable';
-import { STRICT_EQUAL } from './utils';
+import { NOOP, STRICT_EQUAL } from './utils';
 import { Cancellable, cancellable } from './cancellable';
 import { disposable } from './disposable';
 import { scope } from './scope';
@@ -29,7 +29,7 @@ export type StateInstance = {
 
 const DEFAULT_REDUCER = (_: any, result: any) => result;
 
-export const createState = <T, P, E extends Record<string, any> = EO>(
+export const createStateDef = <T, P, E extends Record<string, any> = EO>(
   init: T | ((params: P) => T),
   { equal = STRICT_EQUAL }: StateOptions<T> = {},
   enhancer?: (state: MutableState<T, P>) => E,
@@ -106,12 +106,15 @@ export const createState = <T, P, E extends Record<string, any> = EO>(
 const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   let value: any;
   let staled = true;
-  let cleanup: VoidFunction | undefined;
+  let cleanup = NOOP;
+  let disposed = false;
   // hold computation error
   let error: any;
-  let cc: Cancellable | undefined;
+  let currentCancellable: Cancellable | undefined;
+  let changeToken = {};
   const onChange = emitter();
   const onDispose = emitter();
+  const unsubscribes = new Map<Listenable, VoidFunction>();
 
   const change = (nextValue: any) => {
     staled = false;
@@ -121,9 +124,11 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     }
 
     if (isPromiseLike(nextValue)) {
-      value = asyncResult(nextValue);
+      value = async(nextValue);
     }
+
     value = nextValue;
+    changeToken = {};
     onChange.emit(value);
   };
 
@@ -136,8 +141,8 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       return;
     }
 
-    cc?.cancel();
-    cc = undefined;
+    currentCancellable?.cancel();
+    currentCancellable = undefined;
 
     staled = false;
     error = undefined;
@@ -156,7 +161,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         },
       );
 
-      cc = scopes.cancellable;
+      currentCancellable = scopes.cancellable;
 
       // we keep watching even if an error occurs
       const unwatch = scopes.trackable.track(() => {
@@ -200,14 +205,67 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       if (typeof staleOptionsOrReducer === 'function') {
         const reducer = staleOptionsOrReducer;
         listener = result => {
+          // make sure latest value is present
           recompute();
 
           try {
-            cc?.cancel();
+            currentCancellable?.cancel();
             const [nextCancellable, nextValue] = cancellable(() =>
-              reducer(value, result, { params }),
+              reducer(value, result, {
+                params,
+                optimistic(value: any, valueOrLoader: any, rollback?: AnyFunc) {
+                  const prevChangeToken = changeToken;
+                  const prevCancellable = currentCancellable;
+                  const prevValue = value;
+                  const response =
+                    typeof valueOrLoader === 'function'
+                      ? valueOrLoader()
+                      : valueOrLoader;
+
+                  if (!isPromiseLike(response)) {
+                    return response;
+                  }
+
+                  const ar = async(response);
+                  if (ar.error) {
+                    throw ar.error;
+                  }
+
+                  if (!ar.loading) {
+                    return ar.data;
+                  }
+
+                  ar.then(
+                    resolved => {
+                      if (
+                        prevChangeToken !== changeToken ||
+                        prevCancellable?.cancelled()
+                      ) {
+                        return;
+                      }
+                      change(resolved);
+                    },
+                    error => {
+                      if (
+                        prevChangeToken !== changeToken ||
+                        prevCancellable?.cancelled()
+                      ) {
+                        return;
+                      }
+
+                      const restoredValue = rollback
+                        ? rollback(value, error)
+                        : prevValue;
+
+                      change(restoredValue);
+                    },
+                  );
+
+                  return value;
+                },
+              }),
             );
-            cc = nextCancellable;
+            currentCancellable = nextCancellable;
             change(nextValue);
           } catch (ex) {
             error = ex;
@@ -233,7 +291,8 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         };
       }
 
-      onDispose.on(listenable.on(listener));
+      unsubscribes.get(listenable)?.();
+      unsubscribes.set(listenable, listenable.on(listener));
     },
     set(valueOrReducer) {
       let next: any;
@@ -246,8 +305,15 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       change(next);
     },
     dispose() {
-      cleanup?.();
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      cleanup();
+      unsubscribes.forEach(x => x());
       onDispose.emit();
+      unsubscribes.clear();
+      onDispose.clear();
     },
   };
 

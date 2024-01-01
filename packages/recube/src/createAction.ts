@@ -6,13 +6,13 @@ import {
   AnyFunc,
   State,
 } from './types';
-import { asyncResult, isPromiseLike } from './async';
-import { NOOP } from './utils';
+import { async, isPromiseLike } from './async';
+import { NOOP, enqueue } from './utils';
 import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
-import { createState } from './createState';
-import { batch } from './batch';
+import { createStateDef } from './createState';
+import { batch } from './batchable';
 
 const DEFAULT_CALLING = () => false;
 
@@ -40,19 +40,18 @@ export const createAction = (
   const onDispose = emitter();
   const loadingAction = lazyValue(() => createAction() as Action<any, any>);
   const failedAction = lazyValue(
-    () => createAction(createState) as Action<any, any>,
+    () => createAction(createStateDef) as Action<any, any>,
   );
   const resultState = lazyValue<State<any, void>>(() => {
     const [{ dispose }, result] = disposable(() =>
-      createState<any, void>(callInfo.result, { name: '#ACTION_RESULT' }).when(
-        changeResultAction(),
-        (_, result) => {
-          if (result.type === 'error') {
-            throw result.data;
-          }
-          return result.data;
-        },
-      ),
+      createStateDef<any, void>(callInfo.result, {
+        name: '#ACTION_RESULT',
+      }).when(changeResultAction(), (_, result) => {
+        if (result.type === 'error') {
+          throw result.data;
+        }
+        return result.data;
+      }),
     );
     onDispose.on(dispose);
     return result;
@@ -130,7 +129,7 @@ export const createAction = (
         },
       });
 
-      result = asyncResult(
+      result = async(
         new Promise((resolve, reject) => {
           originalPromise
             .then(value => {
@@ -153,12 +152,12 @@ export const createAction = (
         }),
       );
 
-      loadingAction.peek()?.({ payload });
+      loadingAction.peek()?.({ payload, result });
     } else {
       try {
         onDispatch.emit(result);
       } finally {
-        nextAction();
+        enqueue(nextAction);
       }
     }
 
