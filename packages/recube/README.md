@@ -1,14 +1,8 @@
 # Recube - State Management Library
 
----
-
-## Introduction
-
 `recube` is a streamlined state management library for React applications. It focuses on simplifying state structuring and enhancing rendering optimization, making it an effective choice for developers building scalable and maintainable React projects.
 
-## Getting started
-
-### Installation
+## Installation
 
 ```bash
 npm install recube
@@ -17,6 +11,20 @@ npm install recube
 
 yarn add recube
 ```
+
+## Features
+
+`recube` is designed to enhance your React application with a range of powerful features:
+
+- **Maximized State Decomposition:** Breaks down application state into the smallest manageable units, promoting a cleaner and more organized structure.
+- **Interdependent State:** Enables reactive state management where states can be derived from other states, creating a dynamic and responsive application ecosystem. This feature ensures that changes in one part of the state can intelligently influence related states.
+- **Simplified State-Component Connection:** Eliminates the need for hooks or Providers to link state with components, streamlining the integration process.
+- **Effortless Async Task Handling:** Provides an easy-to-use structure for managing asynchronous tasks, simplifying complex state changes and data fetching.
+- **Seamless Async Data Rendering:** Enhances handling of rendering when dealing with asynchronous data, ensuring a smooth user experience.
+- **Optimized Component Rendering:** Reduces the need and potential errors in using useCallback, useMemo, and useEffect, through powerful rendering optimization strategies. This results in more efficient component updates.
+- **Compatibility with Suspense and ErrorBoundary:** Fully supports React's Suspense and ErrorBoundary, ensuring that your application is robust and user-friendly, even in the face of unexpected errors or data loading states.
+
+## Getting started
 
 ### First create Counter app
 
@@ -34,7 +42,26 @@ const Counter = cube(() => <h1 onClick={() => increment()}>{count()}</h1>);
 Breaking down the code, let's explore each line to understand how recube manages state and actions effectively.
 Declaring an action (line 4) with recube is quite straightforward. An action acts like an event occurring within the app.
 Use the `when(listenable, reducer)` method of the state (line 5) to indicate that the state will listen for action dispatching and call the reducer to update with its new value.
-Use the `cube(renderFn)` function to create a cube, which is a React component but with special optimizations for rendering. The connection between the state and the cube is done automatically without the need for hooks.
+Use the `cube(renderFn)` function to create a cube, which is a React component but with special optimizations for rendering. The connection between the state and the cube is done automatically without the need for hooks. With a design that doesn't utilize any hooks, you can easily employ conditional rendering in combination with state without having to concern yourself with how components and state are connected.
+
+```js
+// other lib
+const Comp = props => {
+  // we have to connect 3 atoms/states
+  const v1 = useAtom(atom1);
+  const v2 = useAtom(atom1);
+  const v3 = useAtom(atom1);
+
+  // consider which one will be rendered
+  return <div>{v1 === 'condition' ? v2 : v3}</div>;
+};
+
+const Comp = cube(props => {
+  // depending on the value of state1, the component will connect to either state2 or state3
+  // Cube makes the rendering logic much simpler
+  return <div>{state1() === 'condition' ? state2() : state3()}</div>;
+});
+```
 
 In terms of rendering performance, `recube` significantly enhances the performance for `cube`. Notably, in the Counter component which has no props, `recube` will skip all subsequent re-renders, even if the parent component attempts to pass different props. This level of optimization goes beyond what is achieved with `memo()`
 
@@ -159,7 +186,7 @@ const Counter = cube(() => {
 });
 ```
 
-`Recube` provides a `loadable` function to handle any promise object; we can use `loadable` with the result of the `fetch` function
+`Recube` provides a `loadable` function to handle any promise object; we can use `loadable` with the result of the `fetch` function, for example:
 
 ```js
 const UserProfile = cube(() => {
@@ -202,47 +229,27 @@ const Counter = cube(() => {
 });
 ```
 
-## Features
-
-`recube` is designed to enhance your React application with a range of powerful features:
-
-- **Maximized State Decomposition:** Breaks down application state into the smallest manageable units, promoting a cleaner and more organized structure.
-- **Interdependent State:** Enables reactive state management where states can be derived from other states, creating a dynamic and responsive application ecosystem. This feature ensures that changes in one part of the state can intelligently influence related states.
-- **Simplified State-Component Connection:** Eliminates the need for hooks or Providers to link state with components, streamlining the integration process.
-- **Effortless Async Task Handling:** Provides an easy-to-use structure for managing asynchronous tasks, simplifying complex state changes and data fetching.
-- **Seamless Async Data Rendering:** Enhances handling of rendering when dealing with asynchronous data, ensuring a smooth user experience.
-- **Optimized Component Rendering:** Reduces the need and potential errors in using useCallback, useMemo, and useEffect, through powerful rendering optimization strategies. This results in more efficient component updates.
-- **Compatibility with Suspense and ErrorBoundary:** Fully supports React's Suspense and ErrorBoundary, ensuring that your application is robust and user-friendly, even in the face of unexpected errors or data loading states.
-
 ## Core Concepts
 
 - **State**: The `State` monitors dispatches from Action and adjusts its value in response. The `State` also does reactively update whenever its dependency states has been changed.
 - **Action**: Action is just an event that describes something that happened in the application. In some cases, the `Action` used for handling data retrieval or submission processes.
 - **Cube**: The `Cube` displays the state values it's connected to and updates reactively to any changes in these states. Additionally, Cube implements certain optimizations for renderingsome optimization for rendering under the hood.
 
-The `recube` is similar to Flux flow but it has more extra sub flows
+`Recube` operates like the flow chart shown below
 
 ```text
-Dispatch ─────┐                     ┌── Update Dependencies
-    │         │                     │          │
-    │         │                     │          │
-    │    ┌────┴────┐           ┌────▼────┐     │
-    │    │         │           │         │     │
-    └────►  Action ├───────────►  State  ├─────┘
-         │         │           │         │
-         └────▲────┘           └────┬────┘
-              │                     │
-              │                     │
-              │                     │
-              │                   Update
-              │                     │
-              │                     │
-              │                     │
-              │                ┌────▼────┐
-              │                │         │
-           Dispatch ───────────┤  Cube   │
-                               │         │
-                               └─────────┘
+
+dispatch ─────┐                      ┌────── update
+    │         │                      │          │
+    │    ┌────┴────┐            ┌────▼────┐     │
+    └────►  ACTION ├── mutate ──►  STATE  ├─────┘
+         └────▲────┘            └────┬────┘
+              │                      │
+           dispatch                update
+              │      ┌─────────┐     │
+              └──────│  CUBE   ◄─────┘
+                     └─────────┘
+
 ```
 
 ### Actions
@@ -280,13 +287,8 @@ There are 2 kinds of state: normal state and derived state
 // normal state
 const count = state(1);
 
-// derived state
-const doubledCount = state(
-  // compute function
-  () => {
-    return count() * 2;
-  },
-);
+// derived state, it can retrieves compute function
+const doubledCount = state(() => count() * 2);
 ```
 
 State is function, invoke it as function to get state value

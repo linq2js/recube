@@ -1,6 +1,7 @@
 import { action } from './action';
 import { delay } from './async';
 import { cancellable } from './cancellable';
+import { recent } from './listenable';
 import { state } from './state';
 
 describe('family', () => {
@@ -56,6 +57,28 @@ describe('when', () => {
     await delay(20);
     expect(count()).toBe(5);
   });
+
+  test('error #1', () => {
+    const increment = action();
+    const count = state(1).when(increment, () => {
+      throw new Error('error');
+      return 1;
+    });
+    // It's necessary to create an instance of the state first; otherwise, dispatching an action will have no effect
+    count();
+    increment();
+    expect(count).toThrow('error');
+  });
+
+  test('error #2', () => {
+    const increment = action();
+    const count = state(1).when(increment.pipe(recent), () => {
+      throw new Error('error');
+      return 1;
+    });
+    increment();
+    expect(count).toThrow('error');
+  });
 });
 
 describe('derived state', () => {
@@ -84,6 +107,15 @@ describe('derived state', () => {
     // changing discount does not affect finalPrice
     changeDiscount(0.5);
     expect(finalPrice()).toBe(20);
+  });
+
+  test('error', () => {
+    const root = state(() => {
+      throw new Error('error');
+      return 1;
+    });
+    const derived = state(() => root() * 2);
+    expect(derived).toThrow('error');
   });
 });
 

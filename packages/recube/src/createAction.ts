@@ -12,7 +12,7 @@ import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
 import { createStateDef } from './createState';
-import { batch } from './batchable';
+import { batchable } from './batchable';
 
 const DEFAULT_CALLING = () => false;
 
@@ -99,6 +99,15 @@ export const createAction = (
     Object.assign(instance, props);
   };
 
+  const notify = (result: any) => {
+    const b = batchable();
+    if (b) {
+      b.add(() => onDispatch.emit(result));
+    } else {
+      onDispatch.emit(result);
+    }
+  };
+
   const dispatch = (...args: any[]): any => {
     const payload = args[0];
     const ac = cancellable();
@@ -116,7 +125,7 @@ export const createAction = (
     let result: any;
     let error: any;
     try {
-      result = body ? batch(() => body(payload)) : payload;
+      result = body ? body(payload) : payload;
     } catch (ex) {
       error = ex;
     }
@@ -138,7 +147,7 @@ export const createAction = (
                 return;
               }
               resolve(value);
-              onDispatch.emit(value);
+              notify(value);
             })
             .catch(reason => {
               calling = false;
@@ -155,7 +164,7 @@ export const createAction = (
       loadingAction.peek()?.({ payload, result });
     } else {
       try {
-        onDispatch.emit(result);
+        notify(result);
       } finally {
         enqueue(nextAction);
       }

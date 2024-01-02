@@ -26,7 +26,6 @@ export type StateContext<T, P> = {
 
 export type StaleOptions<TValue, TData> = {
   stale: true | ((value: TValue, data: TData) => boolean);
-  notify?: boolean;
 };
 
 export type Listenable<T = any> = {

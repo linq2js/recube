@@ -285,9 +285,7 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
           }
           // mark as staled
           staled = true;
-          if (staleOptions.notify) {
-            onChange.emit();
-          }
+          onChange.emit();
         };
       }
 
