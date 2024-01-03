@@ -84,6 +84,8 @@ export type State<TValue, TParams = void> = {
   size: () => number;
 
   forEach: (callback: (params: TParams) => void) => void;
+
+  peek: (params: TParams) => TValue;
 };
 
 export type ActionMiddleware = (

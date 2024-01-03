@@ -25,6 +25,7 @@ export type StateInstance = {
   ) => void;
   dispose: () => void;
   set: (valueOrReducer: any) => any;
+  peek: () => any;
 };
 
 const DEFAULT_REDUCER = (_: any, result: any) => result;
@@ -94,6 +95,10 @@ export const createStateDef = <T, P, E extends Record<string, any> = EO>(
 
         const instance = instances.get(params);
         instance.set(valueOrReducer);
+      },
+      peek(params: any) {
+        const instance = instances.get(params);
+        return instance.peek();
       },
     },
   );
@@ -186,18 +191,24 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     }
   };
 
+  const getValue = (shouldTrack: boolean) => {
+    recompute();
+
+    if (error) {
+      throw error;
+    }
+
+    if (shouldTrack) {
+      trackable()?.add(onChange);
+    }
+
+    return value;
+  };
+
   const instance: StateInstance = {
     params,
     get value() {
-      recompute();
-
-      if (error) {
-        throw error;
-      }
-
-      trackable()?.add(onChange);
-
-      return value;
+      return getValue(true);
     },
     when(listenable, staleOptionsOrReducer) {
       let listener: Listener;
@@ -301,6 +312,9 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         next = valueOrReducer;
       }
       change(next);
+    },
+    peek() {
+      return getValue(false);
     },
     dispose() {
       if (disposed) {
