@@ -316,8 +316,35 @@ export const async = Object.assign(
         reason,
       );
     },
+    func<T>(
+      asyncImport: () => Promise<T>,
+    ): T extends AnyFunc ? T : T extends { default: infer F } ? F : never {
+      let p: Promise<AnyFunc> | undefined;
+
+      return ((...args: any[]) => {
+        if (!p) {
+          p = asyncImport().then((value: any) => {
+            if (typeof value === 'function') {
+              return value;
+            }
+
+            if (typeof value?.default === 'function') {
+              return value.default;
+            }
+
+            return ASYNC_FUNCTION_CANNOT_BE_LOADED;
+          });
+        }
+
+        return p.then(x => x(...args));
+      }) as any;
+    },
   },
 );
+
+const ASYNC_FUNCTION_CANNOT_BE_LOADED = () => {
+  throw new Error('Cannot load async function');
+};
 
 export const isPromiseLike = <T>(value: any): value is Promise<T> => {
   return value && typeof value.then === 'function';

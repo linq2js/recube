@@ -101,40 +101,64 @@ const createScope = (create: AnyFunc) => {
     if (!args.length) {
       return get();
     }
-    const [fn, snapshot, initialScopeMap] = args;
+    const [fn, snapshot] = args;
     const customScope =
       typeof snapshot === 'function' ? snapshot(accessor) : snapshot;
-    const current = customScope ?? create();
-    const { onEnter, onExit } = current ?? {};
-    let scopeMap: Map<any, any> = initialScopeMap;
-    const prevStack = activeScopeStack;
-    if (!scopeMap) {
-      scopeMap = new Map();
-      activeScopeStack = [scopeMap, ...activeScopeStack];
-    }
-    scopeMap.set(accessor, current);
+    const scopeInstance = customScope ?? create();
 
-    try {
-      if (typeof onEnter === 'function') {
-        onEnter();
-      }
-
-      return [current, fn()] as const;
-    } finally {
-      // restore prev stack
-      activeScopeStack = prevStack;
-
-      if (typeof onExit === 'function') {
-        onExit();
-      }
-    }
+    return [
+      scopeInstance,
+      applyScopes(new Map([[accessor, scopeInstance]]), fn),
+    ];
   };
 
   return Object.assign(accessor, { type: 'scope', new: create }) as any;
 };
 
+/**
+ * @param mapOrStack A map of current scopes; we use a Map instead of a WeakMap because we need to access scope instances for emitting scope events
+ * @param fn
+ * @returns
+ */
+const applyScopes = <T>(
+  mapOrStack: Map<any, any> | WeakMap<any, any>[],
+  fn: () => T,
+): T => {
+  const prevStack = activeScopeStack;
+
+  if (Array.isArray(mapOrStack)) {
+    activeScopeStack = mapOrStack;
+  } else {
+    activeScopeStack = [new WeakMap(mapOrStack), ...activeScopeStack];
+  }
+
+  try {
+    if ('get' in mapOrStack) {
+      mapOrStack.forEach(x => {
+        if (typeof x?.onEnter === 'function') {
+          x.onEnter();
+        }
+      });
+    }
+
+    return fn();
+  } finally {
+    // restore active stack
+    activeScopeStack = prevStack;
+
+    if ('get' in mapOrStack) {
+      mapOrStack.forEach(x => {
+        if (typeof x?.onExit === 'function') {
+          x.onExit();
+        }
+      });
+      mapOrStack.clear();
+    }
+  }
+};
+
 export const scope: Scope = (...args: any[]): any => {
-  // scope()
+  // OVERLOAD: scope()
   if (!args.length) {
     let snapshotMethods = (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP];
 
@@ -166,44 +190,27 @@ export const scope: Scope = (...args: any[]): any => {
     return snapshotMethods;
   }
 
-  // scope(create)
+  // OVERLOAD: scope(create)
   if (args.length === 1) {
     return createScope(args[0]);
   }
 
-  // scope(snapshot, fn)
-  if (typeof args[0] === 'function') {
+  // OVERLOAD: scope(snapshot, fn)
+  if (typeof args[0] === 'function' && typeof args[1] === 'function') {
     const [snapshot, fn] = args as [ScopeSnapshot, AnyFunc];
-    const prevStack = activeScopeStack;
-    activeScopeStack = snapshot();
-    try {
-      return fn();
-    } finally {
-      activeScopeStack = prevStack;
-    }
+    return applyScopes(snapshot(), fn);
   }
 
-  // scope(defs, fn)
-  const [scopeTypes, fn] = args as [Record<string, AnyFunc>, AnyFunc];
+  // OVERLOAD: scope(defs, fn)
+  const [scopeTypes, fn] = args as [Record<string, ScopeDef<any>>, AnyFunc];
   const scopes: Dictionary = {};
-  const keys = Object.keys(scopeTypes);
-  const prevStack = activeScopeStack;
   const scopeMap = new Map();
-  activeScopeStack = [scopeMap, ...activeScopeStack];
+  Object.keys(scopeTypes).forEach(key => {
+    const scopeType = scopeTypes[key];
+    const scopeInstance = scopeType.new();
+    scopes[key] = scopeInstance;
+    scopeMap.set(scopeType, scopeInstance);
+  });
 
-  try {
-    return [
-      scopes,
-      keys.reduceRight(
-        (next, key) => () => {
-          const [scope, result] = scopeTypes[key](next, undefined, scopeMap);
-          scopes[key] = scope;
-          return result;
-        },
-        fn,
-      )(),
-    ];
-  } finally {
-    activeScopeStack = prevStack;
-  }
+  return [scopes, applyScopes(scopeMap, fn)];
 };

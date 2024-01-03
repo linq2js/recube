@@ -62,6 +62,28 @@ describe('async', () => {
     updateProfile();
     expect(value()).toBe('Updating');
   });
+
+  test('func #1', async () => {
+    const fn = (p: number) => p;
+    const increment = action(async.func(() => Promise.resolve(fn)));
+    const count = state(1).when(increment, (prev, result) => prev + result);
+    expect(count()).toBe(1);
+    increment(2);
+    await delay(10);
+    expect(count()).toBe(3);
+  });
+
+  test('func #2', async () => {
+    const fn = (p: number) => p;
+    const increment = action(
+      async.func(() => Promise.resolve({ default: fn })),
+    );
+    const count = state(1).when(increment, (prev, result) => prev + result);
+    expect(count()).toBe(1);
+    increment(2);
+    await delay(10);
+    expect(count()).toBe(3);
+  });
 });
 
 describe('loadable', () => {

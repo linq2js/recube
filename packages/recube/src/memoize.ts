@@ -1,3 +1,4 @@
+import { disposable } from './disposable';
 import { trackable } from './trackable';
 import { Equal } from './types';
 import { NOOP } from './utils';
@@ -19,20 +20,22 @@ export const memoize = <R, A extends any[]>(
 
   const wipe = (filter?: (result: R, ...args: A) => boolean) => {
     if (typeof filter === 'function') {
-      const unwatches: VoidFunction[] = [];
+      const unwatchFns: VoidFunction[] = [];
       calls = calls.filter(x => {
         if (filter(x.result, ...x.args)) {
-          unwatches.push(x.unwatch ?? NOOP);
+          unwatchFns.push(x.unwatch ?? NOOP);
           return true;
         }
         return false;
       });
-      unwatches.forEach(x => x());
+      unwatchFns.forEach(x => x());
     } else {
       calls.forEach(x => x.unwatch?.());
       calls = [];
     }
   };
+
+  disposable()?.add(() => wipe());
 
   return Object.assign(
     (...args: A): R => {
