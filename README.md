@@ -1,8 +1,72 @@
 # Recube - State Management Library
 
-`recube` is a streamlined state management library for React applications. It focuses on simplifying state structuring and enhancing rendering optimization, making it an effective choice for developers building scalable and maintainable React projects.
+`Recube` is a streamlined state management library for React applications. It focuses on simplifying state structuring and enhancing rendering optimization, making it an effective choice for developers building scalable and maintainable React projects.
+
+## Introduction
+
+Managing state in JavaScript applications can be challenging, especially when it comes to tracking state changes and updating related states accordingly. Recube offers an elegant solution to manage reactive state effortlessly and efficiently. At its core, Recube is built around two main concepts: state and action. The state serves as the application's data store, while actions function like app events. The state listens for action dispatches and updates its value in response to each specific action.
+
+```js
+import { state, action } from 'recube';
+
+// define actions
+const increment = action();
+const decrement = action();
+
+// define states
+const count = state(1)
+  // using chaining method to describe how state reacts with actions
+  .when(increment, x => x + 1)
+  .when(decrement, x => x - 1);
+
+// state is function, call it to get current value of the state
+console.log(count()); // 1
+
+// action is also a function, therefore, calling a function equates to dispatching an action
+increment();
+
+console.log(count()); // 2
+
+decrement();
+
+console.log(count()); // 1
+```
+
+`Recube` `state` and `action` can be used with VanillaJS apps. If we want to use it with a React app, we need to import `cube`. `Cube` is a React component that tracks state changes and then re-renders. `Cube` automatically connects to the state, so you don't need to use any other hooks.
+
+```js
+import { state, action } from 'recube';
+import { cube } from 'recube/react';
+
+// just 3 lines for Counter app
+const increment = action();
+const count = state(1).when(increment, x => x + 1);
+const App = cube(() => <h1 onClick={increment}>Count: {count()}</h1>);
+```
+
+When working with other state management libraries, you often need to explicitly define how many states or stores a component must connect to. Recube simplifies connecting to the state as much as possible, helping to minimize code and improve rendering performance.
+
+```js
+// without recube
+const App = () => {
+  // the component have to connect to 3 atoms
+  const s1 = useAtom(atom1);
+  const s2 = useAtom(atom2);
+  const s3 = useAtom(atom3);
+
+  return <div>{s1 === condition ? s2 : s3}</div>;
+};
+
+// with recube
+const App = cube(() => {
+  // The component only connects to state1 and state2, or state1 and state3
+  return <div>{state1() === condition ? state2() : state3()}</div>;
+});
+```
 
 ## Installation
+
+`Recube` can be installed by adding the `recube` package to your project:
 
 ```bash
 npm install recube
@@ -12,343 +76,167 @@ npm install recube
 yarn add recube
 ```
 
-## Features
+Once installed via your package manager of choice, you're ready to import it in your app.
 
-`recube` is designed to enhance your React application with a range of powerful features:
+## Basic Usage
 
-- **Maximized State Decomposition:** Breaks down application state into the smallest manageable units, promoting a cleaner and more organized structure.
-- **Interdependent State:** Enables reactive state management where states can be derived from other states, creating a dynamic and responsive application ecosystem. This feature ensures that changes in one part of the state can intelligently influence related states.
-- **Simplified State-Component Connection:** Eliminates the need for hooks or Providers to link state with components, streamlining the integration process.
-- **Effortless Async Task Handling:** Provides an easy-to-use structure for managing asynchronous tasks, simplifying complex state changes and data fetching.
-- **Seamless Async Data Rendering:** Enhances handling of rendering when dealing with asynchronous data, ensuring a smooth user experience.
-- **Optimized Component Rendering:** Reduces the need and potential errors in using useCallback, useMemo, and useEffect, through powerful rendering optimization strategies. This results in more efficient component updates.
-- **Compatibility with Suspense and ErrorBoundary:** Fully supports React's Suspense and ErrorBoundary, ensuring that your application is robust and user-friendly, even in the face of unexpected errors or data loading states.
-
-## Getting started
-
-### First create Counter app
-
-Let's dive into creating a streamlined counter application using `recube`, where we'll define a `count` state and an `increment` action. This setup will demonstrate how effortlessly the 'count' state is updated in response to executing the `increment` action, highlighting the seamless state management capabilities of `recube`.
+Let's use `recube` in a real world scenario. We're going to build a todo list app, where you can add and remove items in a todo list. We'll start by modeling the state. We're going to need a state that holds a list of todos first, which we can represent with an Array:
 
 ```js
 import { state, action } from 'recube';
-import { cube } from 'cube';
 
-const increment = action();
-const count = state(0).when(increment, x => x + 1);
-const Counter = cube(() => <h1 onClick={() => increment()}>{count()}</h1>);
+// define actions
+// assuming that the action has a payload as todo text
+const addTodo = action();
+// assuming that the action has a payload as todo object
+const removeTodo = action();
+const todos = state([{ text: 'Buy groceries' }, { text: 'Walk the dog' }])
+  .when(
+    addTodo,
+    // the first parameter is prev state value
+    // the second parameter is action result (if the action has body) or action payload (if the action has no body)
+    (prev, text) => [...prev, { text }],
+  )
+  .when(removeTodo, (prev, todo) => prev.filter(x => x !== todo));
+
+// simulate adding a new todo
+addTodo('Tidy up'); // dispatch addTodo with payload
+// Check that it added the new item
+console.log(todos());
+// Logs: [{text: "Buy groceries"}, {text: "Walk the dog"}, {text: "Tidy up"}]
 ```
 
-Breaking down the code, let's explore each line to understand how recube manages state and actions effectively.
-Declaring an action (line 4) with recube is quite straightforward. An action acts like an event occurring within the app.
-Use the `when(listenable, reducer)` method of the state (line 5) to indicate that the state will listen for action dispatching and call the reducer to update with its new value.
-Use the `cube(renderFn)` function to create a cube, which is a React component but with special optimizations for rendering. The connection between the state and the cube is done automatically without the need for hooks. With a design that doesn't utilize any hooks, you can easily employ conditional rendering in combination with state without having to concern yourself with how components and state are connected.
+Start building UI
 
 ```js
-// other lib
-const Comp = props => {
-  // we have to connect 3 atoms/states
-  const v1 = useAtom(atom1);
-  const v2 = useAtom(atom1);
-  const v3 = useAtom(atom1);
-
-  // consider which one will be rendered
-  return <div>{v1 === 'condition' ? v2 : v3}</div>;
-};
-
-const Comp = cube(props => {
-  // depending on the value of state1, the component will connect to either state2 or state3
-  // Cube makes the rendering logic much simpler
-  return <div>{state1() === 'condition' ? state2() : state3()}</div>;
-});
-```
-
-In terms of rendering performance, `recube` significantly enhances the performance for `cube`. Notably, in the Counter component which has no props, `recube` will skip all subsequent re-renders, even if the parent component attempts to pass different props. This level of optimization goes beyond what is achieved with `memo()`
-
-```js
-import { memo } from 'react';
-
-const MemoizedComp = memo(() => {
-  console.log('render');
-});
-
-const App = () => {
-  const [count, setCount] = useState(0);
-
-  return (
-    <>
-      <button onClick={() => setCount(prev => prev + 1)}>Rerender</button>
-      <Counter count={count} />
-      <MemoizedComp count={count} />
-    </>
-  );
-};
-```
-
-Even when the `Counter` component consumes some callbacks from props, `recube` is intelligently designed to skip all subsequent re-renders.
-
-```js
-const Counter = cube(props => {
-  const handleClick = () => {
-    // a props object always is up to date
-    props.onIncrement?.();
-    increment();
-  };
-  return <h1 onClick={handleClick}>{count()}</h1>;
-});
-
-const App = () => {
-  const [count, setCount] = useState(0);
-  // this callback re-creates for every rendering
-  const onIncrement = () => {
-    alert(count);
-  };
-
-  return (
-    <>
-      <button onClick={() => setCount(prev => prev + 1)}>Rerender</button>
-      <Counter count={count} onIncrement={onIncrement} />
-    </>
-  );
-};
-```
-
-So, when does the `Counter` component actually re-render?
-
-The Counter component only re-renders when the non-function props it consumes change. In below example, it demonstrates Counter component only re-renders when we change `name` prop, and skip re-rendering if we change other props (count, onIncrement)
-
-```js
-// In this case, the Counter component consumes 2 props: name and onIncrement
-const Counter = cube(({ name, onIncrement }) => {
-  const handleClick = () => {
-    // a props object always is up to date
-    onIncrement?.();
-    increment();
-  };
-
-  return (
-    <h1 onClick={handleClick}>
-      {name}: {count()}
-    </h1>
-  );
-});
-
-const App = () => {
-  const [count, setCount] = useState(0);
-  const [name, setName] = useState('Counter');
-
-  // this callback re-creates for every rendering
-  const onIncrement = () => {
-    alert(count);
-  };
-
-  const changeName = () => {
-    setName(`Counter ${Math.random()}`);
-  };
-
-  return (
-    <>
-      <button onClick={() => setCount(prev => prev + 1)}>Rerender</button>
-      <button onClick={changeName}>Change name</button>
-      <Counter count={count} onIncrement={onIncrement} />
-    </>
-  );
-};
-```
-
-Next up, we'll define `incrementAsync` action. The `incrementAsync` action does delay in 1 second and call `increment` action
-
-```js
-// the incrementAsync action has body where we can put execution logic
-const incrementAsync = action(async () => {
-  await delay(1000);
-  increment();
-});
-
-// dispatching incrementAsync is very similar to increment action
-incrementAsync();
-```
-
-The `incrementAsync` action returns a promise object. To disable the increment button while `incrementAsync` is dispatching, we can use the `loadable()` function to obtain a `Loadable` object of the action result. This object includes properties such as `loading`, `data`, and `error`, which inform us about the current status of the action dispatch. If the action result is not Promise object, the loadable function returns an object `{ data: actionResult, loading: false, error: undefined }`
-
-```js
-import { loadable } from 'recube';
-
-const Counter = cube(() => {
-  const { loading } = loadable(incrementAsync.result);
-
-  return (
-    <>
-      <div>Count: {count()}</div>
-      <button disabled={loading} onClick={() => incrementAsync()}></button>
-    </>
-  );
-});
-```
-
-`Recube` provides a `loadable` function to handle any promise object; we can use `loadable` with the result of the `fetch` function, for example:
-
-```js
-const UserProfile = cube(() => {
-  const [profile, setProfile] = useState();
-  // the component will re-render when a profile promise object has been fulfilled or rejected
-  const { loading, data, error } = loadable(profile);
-  const handleLoad = () => {
-    setProfile(
-      fetch('https://jsonplaceholder.typicode.com/users/1').then(res =>
-        res.json(),
-      ),
-    );
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>Something went wrong</div>;
-  }
-
-  return <pre>{JSON.stringify(data)}</pre>;
-});
-```
-
-Returning to the `Counter` app, occasionally we may need to create a state that is derived from another state; `recube` robustly supports such operations.
-
-```js
-// A state function can also retrieve computeFn, and under the hood, recube makes the state reactive. The derived state will be updated whenever its dependent states change
-const doubledCount = state(() => count() * 2);
-const Counter = cube(() => {
-  return (
-    <>
-      <div>Count: {count()}</div>
-      <div>Doubled Count: {doubledCount()}</div>
-      <button onClick={() => incrementAsync()}></button>
-    </>
-  );
-});
-```
-
-## Core Concepts
-
-- **State**: The `State` monitors dispatches from Action and adjusts its value in response. The `State` also does reactively update whenever its dependency states has been changed.
-- **Action**: Action is just an event that describes something that happened in the application. In some cases, the `Action` used for handling data retrieval or submission processes.
-- **Cube**: The `Cube` displays the state values it's connected to and updates reactively to any changes in these states. Additionally, Cube implements certain optimizations for renderingsome optimization for rendering under the hood.
-
-`Recube` operates like the flow chart shown below
-
-```text
-
-dispatch ─────┐                      ┌────── update
-    │         │                      │          │
-    │    ┌────┴────┐            ┌────▼────┐     │
-    └────►  ACTION ├── mutate ──►  STATE  ├─────┘
-         └────▲────┘            └────┬────┘
-              │                      │
-           dispatch                update
-              │      ┌─────────┐     │
-              └──────│  CUBE   ◄─────┘
-                     └─────────┘
-
-```
-
-### Actions
-
-Defining an action is very easy
-
-```ts
-import { action } from 'recube';
-
-// action has no payload
-const increment = action();
-// dispatch
-increment();
-
-// action has number type payload
-const incrementBy = action<number>();
-// dispatch
-incrementBy(1);
-incrementBy(2);
-incrementBy(); // Typescript error
-
-// action has body
-const fetchTodo = action((id: number) => {
-  return getTodoById(id); // Promise<Todo>
-});
-// dispatch
-fetchTodo(1); // Promise<Todo>
-```
-
-### States
-
-There are 2 kinds of state: normal state and derived state
-
-```ts
-// normal state
-const count = state(1);
-
-// derived state, it can retrieves compute function
-const doubledCount = state(() => count() * 2);
-```
-
-State is function, invoke it as function to get state value
-
-```ts
-console.log(count());
-```
-
-`Recube` also supports family of state
-
-```ts
-const searchResult = state(
-  // passing compute function with params
-  (type: string) => {
-    return; // search result of specified type
-  },
-);
-
-console.log(searchResult('list1'));
-console.log(searchResult('list2'));
-console.log(searchResult('list3'));
-
-searchResult.wipe(); // remove all state data
-searchResult('list1'); // the compute function will be called again for computing state value of `list1`
-```
-
-### Cubes
-
-Cubes are just components with rendering optimizations and state bindings
-
-```tsx
 import { cube } from 'recube/react';
-import { count } from './states/count';
 
-// this component does not utilize any props, it renders once and re-render when `count` state changed or its useState hooks update
-const Counter = cube(props => {
-  return <div>{count()}</div>;
-});
+const TodoList = cube(() => {
+  const inputRef = useRef();
+  const handleClick = () => {
+    addTodo(inputRef.current.value);
+    inputRef.current.value = '';
+  };
 
-// this component renders once as well because it utilizes `text` props lazily in callback (not rendering phase)
-const Alert = cube((props: { text: string }) => {
-  return <button onClick={() => alert(props.text)}>click me</button>;
-});
-
-// this component utilizes text and onClick in rendering phase, it will re-renders if text props changed. Changing onClick does no trigger re-rendering because cube makes all callback props as stable
-const Button = cube((props: { text: string; onClick: VoidFunction }) => {
-  return <button onClick={props.onClick}>{props.text}</button>;
+  return (
+    <>
+      <input ref={inputRef} />
+      <button onClick={handleClick}>Add</button>
+      <ul>
+        {todos().map(todo => (
+          <li>
+            {todo.text} <button onClick={() => removeTodo(todo)}>❌</button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
 });
 ```
 
-> Note: The cube re-renders exclusively when there are changes in the non-callback props it utilizes.
+And with that we have a fully working todo app!
 
-## Recipes
+## Deriving states
 
-## API References
+Let's add one more feature to our todo app: each todo item can be checked off as completed, and we'll show the user the number of items they've completed. To do that we'll use computed state, which is computed based on the values of other states.
 
-## Contributing
+```js
+import { state } from 'recube';
 
-We welcome contributions to `Recube`! If you're interested in contributing, please read our contributing guidelines.
+const todos = state([
+  { text: 'Buy groceries', completed: true },
+  { text: 'Walk the dog', completed: false },
+]);
 
-## License
+// create a computed state from other states
+const completed = state(() => {
+  // When `todos` changes, this re-runs automatically:
+  return todos().filter(todo => todo.completed).length;
+});
 
-Recube is MIT licensed.
+// Logs: 1, because one todo is marked as being completed
+console.log(completed());
+```
+
+## How does Recube optimize rendering for components?
+
+To reduce unnecessary rendering for components, we commonly utilize the memoization technique by utilize the `memo()` function
+
+```js
+const MemoizedComp = memo(props => {
+  return <button onClick={props.onClick}>Click me</button>;
+});
+```
+
+This solution has the drawback that we need to memoize all callbacks passed to the MemoizedComp. If we neglect to memoize a callback somewhere, the process of memoization becomes ineffective.
+
+```js
+const Page1 = () => {
+  const handleClick = useCallback(() => {}, [dependencies]);
+  return <MemoizedComp onClick={handleClick} />;
+};
+
+const Page2 = () => {
+  // no memoization for the callback, MemoizedComp still renders unnecessary
+  const handleClick = () => {};
+  return <MemoizedComp onClick={handleClick} />;
+};
+```
+
+With Recube, we don't need to worry about memoizing callbacks.
+
+```js
+const MemoizedComp = cube(props => {
+  return <button onClick={props.onClick}>Click me</button>;
+});
+
+const Page1 = () => {
+  // no useCallback needed
+  const handleClick = () => {};
+  return <MemoizedComp onClick={handleClick} />;
+};
+
+const Page2 = () => {
+  // no useCallback needed
+  const handleClick = () => {};
+  return <MemoizedComp onClick={handleClick} />;
+};
+```
+
+`Cube` can detect which props a component are using and will re-render only when those props change. In cases where a component doesn't use any props, `Cube` will never re-render
+
+```js
+const UserName = cube(props => {
+  // the component utilizes text prop in rendering phase, this means it only re-renders if text prop changed
+  return <div>{props.text}</div>;
+});
+
+const Alert = cube(props => {
+  // the component does not utilize any props in rendering phase but in callback
+  // so the component will never re-render no matter its parent component force re-render
+  return <button onClick={() => alert(props.text)}>Click me</button>;
+});
+
+const Parent = () => {
+  const [count, setCount] = useState(1);
+
+  return (
+    <>
+      <button onClick={() => setCount(count + 1)}>Rerender</button>
+      {/* even, if the parent component tries to pass unutilized props to the Alert, the Alert does not re-render*/}
+      <Alert text="Hi Ging" count={count} />
+      <UserName text="Ging" count={count}>
+    </>
+  );
+};
+```
+
+> Caveat: Rendering optimization is automatically handled by Recube. In `development` environment, using `hot module reloading` may not be effective with `cube`. Therefore, we can disable this feature by using the `propsChangeOptimization` function.
+
+```js
+import { propsChangeOptimization } from 'recube/react';
+
+if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
+  propsChangeOptimization(false);
+}
+```

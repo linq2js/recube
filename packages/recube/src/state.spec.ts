@@ -1,7 +1,6 @@
 import { action } from './action';
 import { delay } from './async';
 import { cancellable } from './cancellable';
-import { recent } from './listenable';
 import { state } from './state';
 
 describe('family', () => {
@@ -72,7 +71,7 @@ describe('when', () => {
 
   test('error #2', () => {
     const increment = action();
-    const count = state(1).when(increment.pipe(recent), () => {
+    const count = state(1).when(increment.recent(), () => {
       throw new Error('error');
       return 1;
     });

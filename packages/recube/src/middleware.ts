@@ -1,5 +1,4 @@
 /* eslint-disable no-nested-ternary */
-import { from } from './listenable';
 import {
   Accessor,
   ActionMiddleware,
@@ -142,14 +141,13 @@ export const debounce = (ms: number) => {
   };
 
   return middlewareOrListenable(
-    (data, listenable) =>
-      from(listenable, {
-        transmitter(listener) {
-          return args => {
-            internal(data, () => listener(args));
-          };
-        },
-      }),
+    (data, listenable) => ({
+      on(listener) {
+        return listenable.on(args => {
+          internal(data, () => listener(args));
+        });
+      },
+    }),
     (data, _context, dispatch) => internal(data, dispatch),
   );
 };
@@ -166,14 +164,13 @@ export const throttle = (ms: number) => {
   };
 
   return middlewareOrListenable(
-    (data, listenable) =>
-      from(listenable, {
-        transmitter(listener) {
-          return args => {
-            internal(data, () => listener(args));
-          };
-        },
-      }),
+    (data, listenable) => ({
+      on(listener) {
+        return listenable.on(args => {
+          internal(data, () => listener(args));
+        });
+      },
+    }),
     (data, _context, dispatch) => internal(data, dispatch),
   );
 };

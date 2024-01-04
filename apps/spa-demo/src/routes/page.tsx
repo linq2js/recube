@@ -2,9 +2,9 @@ import { Link } from '@modern-js/runtime/router';
 
 const links = {
   '/counter': 'Counter',
+  '/todoList': 'TodoList',
   '/renderingOptimization': 'Rendering Optimization',
   '/search': 'Search',
-  '/todo': 'Todo',
   '/cancellable': 'Cancellable',
   '/conditionalDependency': 'Conditional Dependency',
   '/distinct': 'Distinct',

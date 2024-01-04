@@ -5,7 +5,6 @@ export type Emitter<T> = Listenable<T> & {
   size: () => number;
   emit: (args: T) => void;
   emitted: () => boolean;
-  last: () => T | undefined;
   dispose: () => void;
   clear: () => void;
 };
@@ -13,7 +12,8 @@ export type Emitter<T> = Listenable<T> & {
 export type EmitterOptions<T> = {
   onDispose?: VoidFunction;
   equal?: Equal<T>;
-  transmitter?: (listener: Listener<T>) => Listener<T> | undefined;
+  once?: boolean;
+  recent?: boolean;
 };
 
 export type CreateEmitter = <T = void>(
@@ -22,8 +22,9 @@ export type CreateEmitter = <T = void>(
 
 export const emitter: CreateEmitter = ({
   onDispose,
-  transmitter,
   equal,
+  once,
+  recent,
 }: EmitterOptions<any> = {}) => {
   let emitting = false;
   let emitted: { args: any } | undefined;
@@ -72,24 +73,25 @@ export const emitter: CreateEmitter = ({
       }
     },
     on(listener) {
-      const wrapper = transmitter ? transmitter(listener) : listener;
-      if (!wrapper) {
-        return NOOP;
+      if (emitted) {
+        if (once) {
+          return NOOP;
+        }
+        if (recent) {
+          listener(emitted.args);
+        }
       }
 
       if (emitting) {
-        queue.push({ type: 'add', listener: wrapper });
+        queue.push({ type: 'add', listener });
       } else {
-        listeners.add(wrapper);
+        listeners.add(listener);
       }
 
-      return getUnsubscribe(wrapper);
+      return getUnsubscribe(listener);
     },
     emitted() {
       return Boolean(emitted);
-    },
-    last() {
-      return emitted ? emitted.args : null;
     },
     dispose() {
       if (disposed) {

@@ -1,72 +1,39 @@
-/* eslint-disable @typescript-eslint/unified-signatures */
 import { EmitterOptions, emitter } from './emitter';
-import { AnyFunc, Listenable } from './types';
+import { Listenable, Listener } from './types';
+import { NOOP } from './utils';
 
 export const once = <T>(listenable: Listenable<T>): Listenable<T> => {
   let emitted = false;
-  return from(listenable, {
-    transmitter(listener) {
-      return args => {
+
+  return {
+    on(listener: Listener<T>) {
+      if (emitted) {
+        return NOOP;
+      }
+
+      return listenable.on(args => {
         if (emitted) {
           return;
         }
         emitted = true;
         listener(args);
-      };
+      });
     },
-  });
-};
-
-export const recent = <T>(listenable: Listenable<T>): Listenable<T> => {
-  let handleRecentLogic = false;
-
-  return from(listenable, {
-    transmitter(listener) {
-      if (!handleRecentLogic) {
-        handleRecentLogic = true;
-
-        if (listenable.last) {
-          const args = listenable.last();
-          if (args !== null) {
-            listener(args);
-          }
-        }
-      }
-      return listener;
-    },
-  });
+  };
 };
 
 export const any = <T>(...listenables: Listenable<T>[]): Listenable<T> => {
-  const next = emitter<T>();
-  listenables.forEach(x => x.on(next.emit));
-  return next;
-};
+  return {
+    on(listener: Listener<T>) {
+      const e = emitter();
+      listenables.forEach(x => e.on(x.on(listener)));
 
-export type From = {
-  <T = void>(
-    listenable: Listenable<T>,
-    options?: EmitterOptions<T>,
-  ): Listenable<T>;
-
-  <T = void>(
-    emittable: (emit: (args: T) => void) => void,
-    options?: EmitterOptions<T>,
-  ): Listenable<T>;
-};
-
-export const from: From = (
-  listenableOrEmittable: AnyFunc | Listenable,
-  options?: EmitterOptions<any>,
-) => {
-  const e = emitter(options);
-  if ('on' in listenableOrEmittable) {
-    listenableOrEmittable.on(e.emit);
-  } else {
-    listenableOrEmittable(e.emit);
-  }
-
-  return e;
+      return () => {
+        e.emit();
+        e.clear();
+      };
+    },
+  };
 };
 
 export const interval = (

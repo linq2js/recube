@@ -17,8 +17,8 @@ import { disposable } from './disposable';
 import { scope } from './scope';
 
 export type StateInstance = {
-  readonly value: any;
-  readonly params: any;
+  get: () => any;
+  params: () => any;
   when: (
     listenable: Listenable,
     options: AnyFunc | StaleOptions<any, any>,
@@ -30,14 +30,14 @@ export type StateInstance = {
 
 const DEFAULT_REDUCER = (_: any, result: any) => result;
 
-export const createStateDef = <T, P, E extends Record<string, any> = EO>(
+export const createDef = <T, P, E extends Record<string, any> = EO>(
   init: T | ((params: P) => T),
   { equal = STRICT_EQUAL }: StateOptions<T> = {},
   enhancer?: (state: MutableState<T, P>) => E,
 ): E & MutableState<T, P> => {
   const instances = objectKeyedMap({
     create: (params: P) => {
-      const instance = createStateInstance(init, params, equal);
+      const instance = createInstance(init, params, equal);
       onCreate.emit(instance);
       return instance;
     },
@@ -59,11 +59,11 @@ export const createStateDef = <T, P, E extends Record<string, any> = EO>(
       // improve performance by storing prev params and instance
       // using prev instance if the params and prev params is the same
       if (prevParams === params && prevInstance) {
-        return prevInstance.value;
+        return prevInstance.get();
       }
       prevParams = params;
       prevInstance = instances.get(params);
-      return prevInstance.value;
+      return prevInstance.get();
     },
     {
       type: 'state' as const,
@@ -108,7 +108,7 @@ export const createStateDef = <T, P, E extends Record<string, any> = EO>(
   return Object.assign(definition, enhancer?.(definition));
 };
 
-const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
+const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   let value: any;
   let staled = true;
   let cleanup = NOOP;
@@ -206,8 +206,10 @@ const createStateInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   };
 
   const instance: StateInstance = {
-    params,
-    get value() {
+    params() {
+      return params;
+    },
+    get() {
       return getValue(true);
     },
     when(listenable, staleOptionsOrReducer) {

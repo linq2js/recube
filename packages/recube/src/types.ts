@@ -30,7 +30,6 @@ export type StaleOptions<TValue, TData> = {
 
 export type Listenable<T = any> = {
   on: Subscribe<T>;
-  last?: () => T | null;
 };
 
 export type Reducer<TValue, TParams, TData, TNext> = (
@@ -123,36 +122,6 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
 
   (payload: TPayload): TReturn;
 
-  /**
-   * create a listenable object from current action
-   */
-  pipe: {
-    <R1>(f1: (p: Listenable<TData>) => R1): R1;
-
-    <R1, R2>(f1: (p: Listenable<TData>) => R1, f2: (p: R1) => R2): R2;
-
-    <R1, R2, R3>(
-      f1: (p: Listenable<TData>) => R1,
-      f2: (p: R1) => R2,
-      f3: (p: R2) => R3,
-    ): R3;
-
-    <R1, R2, R3, R4>(
-      f1: (p: Listenable<TData>) => R1,
-      f2: (p: R1) => R2,
-      f3: (p: R2) => R3,
-      f4: (p: R3) => R4,
-    ): R4;
-
-    <R1, R2, R3, R4, R5>(
-      f1: (p: Listenable<TData>) => R1,
-      f2: (p: R1) => R2,
-      f3: (p: R2) => R3,
-      f4: (p: R3) => R4,
-      f5: (p: R4) => R5,
-    ): R5;
-  };
-
   use: (...middleware: ActionMiddleware[]) => Action<TData, TPayload, void>;
 
   /**
@@ -180,7 +149,9 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    */
   cancel: () => void;
 
-  last: () => TData | null;
+  once: () => Listenable<TData>;
+
+  recent: () => Listenable<TData>;
 };
 
 export type Listener<T = any> = (args: T) => void;
@@ -214,6 +185,7 @@ export type ActionOptions<T> = {
   name?: string;
   equal?: Equal<T>;
   once?: boolean;
+  recent?: boolean;
 };
 
 export type CreateState = <T, P = void>(

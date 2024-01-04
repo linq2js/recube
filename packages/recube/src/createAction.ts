@@ -4,6 +4,7 @@ import {
   ActionMiddlewareContext,
   ActionOptions,
   AnyFunc,
+  Listener,
   State,
 } from './types';
 import { async, isPromiseLike } from './async';
@@ -11,8 +12,9 @@ import { NOOP, enqueue } from './utils';
 import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
-import { createStateDef } from './createState';
+import { createDef } from './createState';
 import { batchable } from './batchable';
+import { once as onceModifier } from './listenable';
 
 const DEFAULT_CALLING = () => false;
 
@@ -32,19 +34,28 @@ export const createAction = (
   options: ActionOptions<any> = {},
   middleware: AnyFunc[] = [],
 ) => {
-  const { equal, once } = options;
-  const onDispatch = emitter<any>();
+  const { equal, once, recent } = options;
+  const onDispatch = emitter<any>({ recent });
+  const recentListenable = lazyValue(() => ({
+    on(listener: Listener) {
+      if (callInfo.count) {
+        listener(callInfo.data);
+      }
+      return onDispatch.on(listener);
+    },
+  }));
+  const onceListenable = lazyValue(() => onceModifier(onDispatch));
   const changeResultAction = lazyValue(
     () => createAction() as Action<ActionData, ActionData>,
   );
   const onDispose = emitter();
   const loadingAction = lazyValue(() => createAction() as Action<any, any>);
   const failedAction = lazyValue(
-    () => createAction(createStateDef) as Action<any, any>,
+    () => createAction(createDef) as Action<any, any>,
   );
   const resultState = lazyValue<State<any, void>>(() => {
     const [{ dispose }, result] = disposable(() =>
-      createStateDef<any, void>(callInfo.result, {
+      createDef<any, void>(callInfo.result, {
         name: '#ACTION_RESULT',
       }).when(changeResultAction(), (_, result) => {
         if (result.type === 'error') {
@@ -59,6 +70,7 @@ export const createAction = (
 
   // keep last result for late use with resultState
   const callInfo = {
+    data: undefined as any,
     /**
      * last payload
      */
@@ -99,12 +111,13 @@ export const createAction = (
     Object.assign(instance, props);
   };
 
-  const notify = (result: any) => {
+  const notify = (data: any) => {
+    callInfo.data = data;
     const b = batchable();
     if (b) {
-      b.add(() => onDispatch.emit(result));
+      b.add(() => onDispatch.emit(data));
     } else {
-      onDispatch.emit(result);
+      onDispatch.emit(data);
     }
   };
 
@@ -229,15 +242,8 @@ export const createAction = (
         middleware.push(...newMiddleware);
         return instance;
       },
-      pipe(...functions: AnyFunc[]): any {
-        return functions.reduce(
-          (payload, func) => func(payload),
-          instance as any,
-        );
-      },
-      last() {
-        return callInfo.count ? callInfo.payload : null;
-      },
+      recent: recentListenable,
+      once: onceListenable,
     },
   );
 

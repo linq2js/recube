@@ -1,3 +1,5 @@
+import { AnyFunc } from './types';
+
 export const NOOP = () => {
   //
 };
@@ -53,3 +55,51 @@ export const shallow = (a: any, b: any) => {
 };
 
 export { equal } from '@wry/equality';
+
+/**
+ * Unary function
+ */
+export type UF<T, R> = (arg: T) => R;
+
+export type Pipe = {
+  <T, R1>(initial: T, f1: UF<T, R1>): R1;
+
+  <T, R1, R2>(initial: T, f1: UF<T, R1>, f2: UF<R1, R2>): R2;
+
+  <T, R1, R2, R3>(
+    initial: T,
+    f1: UF<T, R1>,
+    f2: UF<R1, R2>,
+    f3: UF<R2, R3>,
+  ): R3;
+
+  <T, R1, R2, R3, R4>(
+    initial: T,
+    f1: UF<T, R1>,
+    f2: UF<R1, R2>,
+    f3: UF<R2, R3>,
+    f4: UF<R3, R4>,
+  ): R4;
+
+  <T, R1, R2, R3, R4, R5>(
+    initial: T,
+    f1: UF<T, R1>,
+    f2: UF<R1, R2>,
+    f3: UF<R2, R3>,
+    f4: UF<R3, R4>,
+    f5: UF<R4, R5>,
+  ): R5;
+
+  <T, R1, R2, R3, R4, R5, R6>(
+    initial: T,
+    f1: UF<T, R1>,
+    f2: UF<R1, R2>,
+    f3: UF<R2, R3>,
+    f4: UF<R3, R4>,
+    f5: UF<R4, R5>,
+    f6: UF<R5, R6>,
+  ): R6;
+};
+
+export const pipe: Pipe = (initial: any, ...functions: AnyFunc[]) =>
+  functions.reduce((result, func) => func(result), initial);
