@@ -160,6 +160,8 @@ console.log(completed());
 
 ## How does Recube optimize rendering for components?
 
+## Optimizing component props
+
 To reduce unnecessary rendering for components, we commonly utilize the memoization technique by utilize the `memo()` function
 
 ```js
@@ -168,7 +170,7 @@ const MemoizedComp = memo(props => {
 });
 ```
 
-This solution has the drawback that we need to memoize all callbacks passed to the MemoizedComp. If we neglect to memoize a callback somewhere, the process of memoization becomes ineffective.
+This way has the drawback that we need to memoize all callbacks passed to the MemoizedComp. If we neglect to memoize a callback somewhere, the process of memoization becomes ineffective.
 
 ```js
 const Page1 = () => {
@@ -240,3 +242,171 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
   propsChangeOptimization(false);
 }
 ```
+
+### Memoizing stuff inside component and local states
+
+`Recube` does rendering optimizing for externally passed props. However, to optimize data changes within the component, we still need to use `useCallback`, `useRef`, `useState`, `useEffect`, and `useMemo` for handling them.
+
+```js
+const MemoizedComp = cube(props => {
+  const [count, setCount] = useState(0);
+  const numberList = useMemo(
+    () => new Array(count).fill().map((x, i) => i),
+    [count],
+  );
+  const increment = useCallback(() => {
+    // actually we can call setCount(prev => prev + 1) but this is for demonstration how hard to manage dependencies with useCallback
+    setCount(count + 1);
+  }, [count, setCount]);
+
+  useEffect(() => {
+    // do something on mount
+
+    return () => {
+      // do something on unmount
+    };
+  }, []);
+
+  return (
+    <>
+      <ul>
+        {numberList.map(x => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+      <NonCubeButton onClick={increment} />
+    </>
+  );
+});
+```
+
+`Recube` provides `useStable` hook. With this hook, we can easily optimize data changes within the component
+
+```js
+import { useStable } from 'recube/react';
+import { createRef } from 'react';
+
+const MemoizedComp = cube(props => {
+  // the init function will be called once
+  const stable = useStable(() => {
+    // local actions
+    const increment = action();
+    // local states
+    const count = state(0).when(increment, x => x + 1);
+    const numberList = state(() => new Array(count()).fill().map((x, i) => i));
+
+    // creating ref for later use
+    const buttonRef = createRef();
+
+    return {
+      count,
+      numberList,
+      buttonRef,
+      increment,
+      // even we can access component props in stable scope
+      greeting() {
+        alert(props.greeting);
+      },
+      onMount() {
+        // do something on mount
+        // the onMount function can return unmount action like useEffect
+        return () => {
+          // do something on unmount
+        };
+      },
+      onUnmount() {
+        // do something on unmount
+      },
+    };
+  });
+
+  return (
+    <>
+      <ul>
+        {stable.numberList.map(x => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+      <NonCubeButton ref={stable.buttonRef} onClick={stable.increment} />
+    </>
+  );
+});
+```
+
+With each component re-render, the hooks inside the component won't need to excessively check for dependencies changes.
+
+We can modularize the logic, using local or global state as needed.
+
+```js
+import { useStable } from 'recube/react';
+import { createRef } from 'react';
+
+const counterLogic = () => {
+  const increment = action();
+  const count = state(0).when(increment, x => x + 1);
+  return { increment, count };
+};
+
+const MemoizedComp = cube(props => {
+  // the init function will be called once
+  const stable = useStable(() => {
+    const counter = counterLogic();
+    const numberList = state(() =>
+      new Array(counter.count()).fill().map((x, i) => i),
+    );
+
+    // creating ref for later use
+    const buttonRef = createRef();
+
+    return {
+      ...counter,
+      numberList,
+      buttonRef,
+      // even we can access component props in stable scope
+      greeting() {
+        alert(props.greeting);
+      },
+      onMount() {
+        // do something on mount
+        // the onMount function can return unmount action like useEffect
+        return () => {
+          // do something on unmount
+        };
+      },
+      onUnmount() {
+        // do something on unmount
+      },
+    };
+  });
+
+  return (
+    <>
+      <ul>
+        {stable.numberList.map(x => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+      <NonCubeButton ref={stable.buttonRef} onClick={stable.increment} />
+    </>
+  );
+});
+```
+
+In the example above, the component only re-renders when `numberList` changes, and `numberList` state changes when the `count` state changes. For further optimization, we can use `Recube`'s `part()` function.
+
+```js
+import { part } from 'recube/react';
+
+const MemoizedComp = cube(props => {
+  const stable = useStable(() => {});
+
+  return (
+    <>
+      <ul>{part(() => stable.numberList.map(x => <li key={x}>{x}</li>))}</ul>
+      <NonCubeButton ref={stable.buttonRef} onClick={stable.increment} />
+    </>
+  );
+});
+```
+
+With this approach, the component will never re-render even if the `count` state changes because frequently changing scope is encapsulated by the `part` function. The `part(fn)` function will track changes within the `fn` function and trigger a re-render, without affecting the host component.
