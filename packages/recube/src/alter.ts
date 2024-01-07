@@ -2,6 +2,7 @@ import { produce } from 'immer';
 import { NoInfer } from './types';
 import { async } from './async';
 import { isObject, isPromiseLike } from './utils';
+import { scope } from './scope';
 
 export type PropsOf<T> = T extends Promise<infer D> ? keyof D : keyof T;
 export type PropValueOf<T, P> = T extends PromiseLike<infer D>
@@ -116,7 +117,7 @@ const alterValue =
       }
 
       if (ar.loading) {
-        return ar.then(reducerWrapper) as any;
+        return scope(ar).then(reducerWrapper) as any;
       }
 
       const next = reducerWrapper(ar.data);

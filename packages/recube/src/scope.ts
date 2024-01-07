@@ -25,6 +25,8 @@ export type ScopeDef<T> = {
 export type ScopeSnapshot = {
   readonly type: 'snapshot';
 
+  readonly stack: WeakMap<ScopeDef<any>, any>[];
+
   /**
    * get scope instance of single scope definition
    */
@@ -36,6 +38,11 @@ export type ScopeSnapshot = {
    * wrap fn with snapshot
    */
   <F extends AnyFunc>(fn: F, ...args: Parameters<F>): ReturnType<F>;
+
+  /**
+   * call a function with specified scopes
+   */
+  <T>(scopes: Map<any, any>, fn: () => T): T;
 };
 
 /**
@@ -83,36 +90,14 @@ export type Scope = {
   ];
 };
 
-/**
- * Storing the active scopes as stack. The structure is as follows, the active is the first:
- * ```
- * [0] WeakMap(disposable)
- * [1] WeakMap(trackable)
- * [2] WeakMap(disposable)
- * ...other items
- * ```
- *
- * If we want to find the active scope of `disposable` type, the `disposable` scope located within the first item (item zero) will be found.
- */
-let activeScopeStack: WeakMap<any, ScopeDef<any>>[] = [];
-const SCOPE_SNAPSHOT_PROP = Symbol('scopeSnapshot');
-const SCOPE_STACK_PROP = Symbol('scopeStack');
-
-const find = (key: any, stack: WeakMap<any, any>[]) => {
-  for (const item of stack) {
-    const value = item.get(key);
-    if (value) {
-      return value;
-    }
-  }
-  return undefined;
-};
+let currentSnapshot: ScopeSnapshot;
+const SNAPSHOT_PROP = Symbol('snapshot');
 
 const createScope = (create: AnyFunc) => {
   let accessor: AnyFunc;
 
   const get = () => {
-    return find(accessor, activeScopeStack);
+    return currentSnapshot(accessor);
   };
 
   accessor = (...args: any[]) => {
@@ -126,7 +111,7 @@ const createScope = (create: AnyFunc) => {
 
     return [
       scopeInstance,
-      applyScopes(new Map([[accessor, scopeInstance]]), fn),
+      currentSnapshot(new Map([[accessor, scopeInstance]]), fn),
     ];
   };
 
@@ -134,145 +119,150 @@ const createScope = (create: AnyFunc) => {
 };
 
 /**
- * @param mapOrStack A map of current scopes; we use a Map instead of a WeakMap because we need to access scope instances for emitting scope events
- * @param fn
- * @returns
+ * @param stack Storing the active scopes as stack. The structure is as follows, the active is the first:
+ * ```
+ * [0] WeakMap(disposable)
+ * [1] WeakMap(trackable)
+ * [2] WeakMap(disposable)
+ * ...other items
+ * ```
+ *
+ * If we want to find the active scope of `disposable` type, the `disposable` scope located within the first item (item zero) will be found.
  */
-const applyScopes = <T>(
-  mapOrStack: Map<any, any> | WeakMap<any, any>[],
-  fn: () => T,
-): T => {
-  const prevStack = activeScopeStack;
-
-  if (Array.isArray(mapOrStack)) {
-    activeScopeStack = mapOrStack;
-  } else {
-    activeScopeStack = [new WeakMap(mapOrStack), ...activeScopeStack];
-  }
-
-  try {
-    if ('get' in mapOrStack) {
-      mapOrStack.forEach(x => {
-        if (typeof x?.onEnter === 'function') {
-          x.onEnter();
-        }
-      });
-    }
-
-    return fn();
-  } finally {
-    // restore active stack
-    activeScopeStack = prevStack;
-
-    if ('get' in mapOrStack) {
-      mapOrStack.forEach(x => {
-        if (typeof x?.onExit === 'function') {
-          x.onExit();
-        }
-      });
-      mapOrStack.clear();
-    }
-  }
-};
-
-const createSnapshot = () => {
-  let snapshot = (activeScopeStack as any)[
-    SCOPE_SNAPSHOT_PROP
-  ] as ScopeSnapshot;
-  if (!snapshot) {
-    const snapshotStack = activeScopeStack;
-    const wrap =
-      (fn: AnyFunc) =>
-      (...args: any[]) => {
-        const prevStack = activeScopeStack;
-        try {
-          activeScopeStack = snapshotStack;
-          return fn(...args);
-        } finally {
-          activeScopeStack = prevStack;
-        }
-      };
-
-    snapshot = Object.assign(
-      (value: any, ...args: any[]) => {
-        // snapshot(def)
-        // snapshot(fn)
-        if (typeof value === 'function') {
-          // snapshot(def)
-          if (value.type === 'scope') {
-            return find(value, snapshotStack);
-          }
-
-          // snapshot(fn)
-          return wrap(value)(...args);
-        }
-
-        if (isPromiseLike(value)) {
-          return wrapPromise(snapshot, value);
-        }
-
-        throw new Error(`No overload with ${typeof value}`);
-      },
-      { type: 'snapshot' as const },
-    );
-  }
-  (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP] = snapshot;
-
-  return snapshot;
-};
-
-const wrapPromise = <T extends Promise<any>>(
-  snapshot: ScopeSnapshot,
-  promise: T,
-): T => {
-  // same scope
-  if ((promise as any)[SCOPE_STACK_PROP] === snapshot) {
-    return promise;
-  }
-
-  const methods = {
-    finally: promise.finally?.bind(promise),
-    then: promise.then?.bind(promise),
-    catch: promise.catch?.bind(promise),
-  };
-  const wrap = (fn?: AnyFunc) => {
-    if (!fn) {
-      return undefined;
-    }
+const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
+  const wrapFunction = (fn: AnyFunc) => {
     return (...args: any[]) => {
-      return snapshot(() => fn(...args));
+      const prevSnapshot = currentSnapshot;
+      try {
+        currentSnapshot = snapshot;
+        return fn(...args);
+      } finally {
+        currentSnapshot = prevSnapshot;
+      }
     };
   };
-  return Object.assign(promise, {
-    [SCOPE_STACK_PROP]: snapshot,
-    then(...args: any[]) {
-      return wrapPromise(snapshot, methods.then(wrap(args[0]), wrap(args[1])));
+
+  const wrapPromise = <T extends Promise<any>>(promise: T): T => {
+    // same scope
+    if ((promise as any)[SNAPSHOT_PROP] === snapshot) {
+      return promise;
+    }
+
+    const methods = {
+      finally: promise.finally?.bind(promise),
+      then: promise.then?.bind(promise),
+      catch: promise.catch?.bind(promise),
+    };
+
+    return Object.assign(promise, {
+      [SNAPSHOT_PROP]: snapshot,
+      then(onResolve?: AnyFunc, onReject?: AnyFunc) {
+        return wrapPromise(
+          methods.then(
+            onResolve && wrapFunction(onResolve),
+            onReject && wrapFunction(onReject),
+          ),
+        );
+      },
+      catch: methods.catch
+        ? (onCatch?: AnyFunc) => {
+            return wrapPromise(methods.catch(onCatch && wrapFunction(onCatch)));
+          }
+        : undefined,
+      finally: methods.finally
+        ? (onFinally?: AnyFunc) => {
+            return wrapPromise(
+              methods.finally(onFinally && wrapFunction(onFinally)),
+            );
+          }
+        : undefined,
+    });
+  };
+
+  const applyScopes = <T>(scopes: Map<any, any>, fn: () => T): T => {
+    const prevSnapshot = currentSnapshot;
+
+    currentSnapshot = createSnapshot([new WeakMap(scopes), ...stack]);
+
+    try {
+      if ('get' in scopes) {
+        scopes.forEach(x => {
+          if (typeof x?.onEnter === 'function') {
+            x.onEnter();
+          }
+        });
+      }
+
+      return fn();
+    } finally {
+      // restore active stack
+      currentSnapshot = prevSnapshot;
+
+      if ('get' in scopes) {
+        scopes.forEach(x => {
+          if (typeof x?.onExit === 'function') {
+            x.onExit();
+          }
+        });
+        scopes.clear();
+      }
+    }
+  };
+
+  const findScope = (def: ScopeDef<any>) => {
+    for (const item of stack) {
+      const value = item.get(def);
+      if (value) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+
+  const snapshot = Object.assign(
+    (value: any, ...args: any[]) => {
+      // OVERLOAD: snapshot(def)
+      // OVERLOAD: snapshot(fn)
+      if (typeof value === 'function') {
+        // OVERLOAD: snapshot(def)
+        if (value.type === 'scope') {
+          return findScope(value);
+        }
+
+        // OVERLOAD: snapshot(fn)
+        return wrapFunction(value)(...args);
+      }
+
+      if (isPromiseLike(value)) {
+        return wrapPromise(value);
+      }
+
+      if (value instanceof Map && typeof args[0] === 'function') {
+        return applyScopes(value, args[0]);
+      }
+
+      throw new Error(`No overload with ${typeof value}`);
     },
-    catch: methods.catch
-      ? (...args: any[]) => {
-          return wrapPromise(snapshot, methods.catch(wrap(args[0])));
-        }
-      : undefined,
-    finally: methods.finally
-      ? (...args: any[]) => {
-          return wrapPromise(snapshot, methods.finally(wrap(args[0])));
-        }
-      : undefined,
-  });
+    { type: 'snapshot' as const, stack },
+  );
+
+  return snapshot;
 };
 
 export const scope: Scope = (...args: any[]): any => {
   // OVERLOAD: scope()
   if (!args.length) {
-    return createSnapshot();
+    return currentSnapshot;
   }
 
   // OVERLOAD: scope(create)
+  // OVERLOAD: scope(promise)
   if (args.length === 1) {
     if (typeof args[0] === 'function') {
       return createScope(args[0]);
     }
-    return createSnapshot()(args[0]);
+
+    return currentSnapshot(args[0]);
   }
 
   // OVERLOAD: scope(snapshot, fn)
@@ -292,5 +282,7 @@ export const scope: Scope = (...args: any[]): any => {
     scopeMap.set(scopeType, scopeInstance);
   });
 
-  return [scopes, applyScopes(scopeMap, fn)];
+  return [scopes, currentSnapshot(scopeMap, fn)];
 };
+
+currentSnapshot = createSnapshot();

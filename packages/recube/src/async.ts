@@ -1,8 +1,8 @@
 /* eslint-disable max-lines */
 import { cancellable } from './cancellable';
-import { ScopeDef, scope } from './scope';
+import { scope } from './scope';
 import { trackable } from './trackable';
-import { AnyFunc, AsyncResult, Dictionary, EO, Loadable } from './types';
+import { AnyFunc, AsyncResult, Dictionary, Loadable } from './types';
 import { NOOP, isObject, isPromiseLike } from './utils';
 
 export type Awaitable<T = any> =
@@ -369,24 +369,6 @@ export const delay = (ms = 0) => {
       },
     },
   );
-};
-
-export type ScopedInstance<IDefs extends readonly ScopeDef<any>[]> =
-  IDefs extends readonly [ScopeDef<infer TInstance>, ...infer TOthers]
-    ? TInstance &
-        (TOthers extends readonly ScopeDef<any>[]
-          ? ScopedInstance<TOthers>
-          : EO)
-    : EO;
-
-export type Scoped = {
-  <D extends Dictionary<ScopeDef<any>>>(defs: D): {
-    [key in keyof D]: D[key] extends ScopeDef<infer I> ? I | undefined : never;
-  } & /**
-   *
-   */ (<T, A extends any[]>(fn: (...args: A) => T, ...args: A) => T);
-
-  <T extends Promise<any>>(value: T): T;
 };
 
 export type MaybePromise<T> = PromiseLike<T> | T;
