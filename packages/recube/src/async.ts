@@ -1,9 +1,9 @@
 /* eslint-disable max-lines */
 import { cancellable } from './cancellable';
-import { scope } from './scope';
+import { ScopeDef, scope } from './scope';
 import { trackable } from './trackable';
-import { AnyFunc, AsyncResult, Dictionary, Loadable } from './types';
-import { NOOP, isObject } from './utils';
+import { AnyFunc, AsyncResult, Dictionary, EO, Loadable } from './types';
+import { NOOP, isObject, isPromiseLike } from './utils';
 
 export type Awaitable<T = any> =
   | (() => T | PromiseLike<T>)
@@ -56,7 +56,6 @@ type ResolvedData = {
 };
 
 const ASYNC_RESULT_PROP = Symbol('asyncResult');
-const SCOPE_STACK_PROP = Symbol('scopeStack');
 
 const resolveData = (key: any, value: any): ResolvedData => {
   if (isPromiseLike(value)) {
@@ -114,12 +113,12 @@ export const resolveAwaitable = (
 
 const resolveAsyncItem = (item: ResolvedData) => {
   if (item.promise) {
-    return scoped(item.promise);
+    return scope(item.promise);
   }
   if (item.error) {
-    return scoped(async.reject(item.error));
+    return scope(async.reject(item.error));
   }
-  return scoped(async.resolve(item.data));
+  return scope(async.resolve(item.data));
 };
 
 export const race: RaceFn = (awaitable: any) => {
@@ -132,11 +131,11 @@ export const race: RaceFn = (awaitable: any) => {
       if (resolved.length) {
         const first = resolved[0];
         if (first.error) {
-          return scoped(async.reject(first.error));
+          return scope(async.reject(first.error));
         }
 
         result[first.key] = first.data;
-        return scoped(async.resolve(result));
+        return scope(async.resolve(result));
       }
 
       const promises = loading.map(({ promise, key }) =>
@@ -148,7 +147,7 @@ export const race: RaceFn = (awaitable: any) => {
         }),
       );
 
-      return scoped(async(Promise.race(promises).then(() => result)));
+      return scope(async(Promise.race(promises).then(() => result)));
     },
   );
 };
@@ -161,7 +160,7 @@ export const all: AllFn = (awaitable: any) => {
       for (const item of resolved) {
         // has any error
         if (item.error) {
-          return scoped(async.reject(item.error));
+          return scope(async.reject(item.error));
         }
         result[item.key] = item.data;
       }
@@ -174,11 +173,11 @@ export const all: AllFn = (awaitable: any) => {
 
       // not fulfilled
       if (promises.length) {
-        return scoped(async(Promise.all(promises).then(() => result)));
+        return scope(async(Promise.all(promises).then(() => result)));
       }
 
       // fulfilled
-      return scoped(async.resolve(result));
+      return scope(async.resolve(result));
     },
   );
 };
@@ -346,10 +345,6 @@ const ASYNC_FUNCTION_CANNOT_BE_LOADED = () => {
   throw new Error('Cannot load async function');
 };
 
-export const isPromiseLike = <T>(value: any): value is Promise<T> => {
-  return value && typeof value.then === 'function';
-};
-
 export const delay = (ms = 0) => {
   let timeoutId: any;
   const cc = cancellable();
@@ -376,43 +371,22 @@ export const delay = (ms = 0) => {
   );
 };
 
-export const scoped = <T extends Promise<any>>(value: T): T => {
-  const snapshot = scope();
+export type ScopedInstance<IDefs extends readonly ScopeDef<any>[]> =
+  IDefs extends readonly [ScopeDef<infer TInstance>, ...infer TOthers]
+    ? TInstance &
+        (TOthers extends readonly ScopeDef<any>[]
+          ? ScopedInstance<TOthers>
+          : EO)
+    : EO;
 
-  // same scope
-  if ((value as any)[SCOPE_STACK_PROP] === snapshot) {
-    return value;
-  }
+export type Scoped = {
+  <D extends Dictionary<ScopeDef<any>>>(defs: D): {
+    [key in keyof D]: D[key] extends ScopeDef<infer I> ? I | undefined : never;
+  } & /**
+   *
+   */ (<T, A extends any[]>(fn: (...args: A) => T, ...args: A) => T);
 
-  const methods = {
-    finally: value.finally?.bind(value),
-    then: value.then?.bind(value),
-    catch: value.catch?.bind(value),
-  };
-  const wrap = (fn?: AnyFunc) => {
-    if (!fn) {
-      return undefined;
-    }
-    return (...args: any[]) => {
-      return scope(snapshot, () => fn(...args));
-    };
-  };
-  return Object.assign(value, {
-    [SCOPE_STACK_PROP]: snapshot,
-    then(...args: any[]) {
-      return scoped(methods.then(wrap(args[0]), wrap(args[1])));
-    },
-    catch: methods.catch
-      ? (...args: any[]) => {
-          return scoped(methods.catch(wrap(args[0])));
-        }
-      : undefined,
-    finally: methods.finally
-      ? (...args: any[]) => {
-          return scoped(methods.finally(wrap(args[0])));
-        }
-      : undefined,
-  });
+  <T extends Promise<any>>(value: T): T;
 };
 
 export type MaybePromise<T> = PromiseLike<T> | T;
@@ -495,7 +469,7 @@ export const chain: Chain = (initial: any, ...funcs: AnyFunc[]) => {
 
   return Promise.resolve(
     [() => initial, ...funcs].reduceRight((next, func) => (payload: any) => {
-      const result = scope(snapshot, () => func(payload));
+      const result = snapshot(() => func(payload));
 
       if (!isObject(result)) {
         return next(result);

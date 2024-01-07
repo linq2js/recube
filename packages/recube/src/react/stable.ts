@@ -176,3 +176,35 @@ export const stable = <P extends Record<string, any>>(
     },
   );
 };
+
+export type StableEvents = {
+  onMount?: VoidFunction | (() => VoidFunction);
+  onUnmount?: VoidFunction;
+};
+
+export const mergeEvents = (
+  ...events: StableEvents[]
+): Required<StableEvents> => {
+  return {
+    onMount() {
+      const unmounts: VoidFunction[] = [];
+      events.forEach(x => {
+        const unmount = x.onMount?.();
+        if (unmount) {
+          unmounts.push(unmount);
+        }
+      });
+
+      if (unmounts.length) {
+        return () => {
+          unmounts.forEach(x => x());
+        };
+      }
+
+      return NOOP;
+    },
+    onUnmount() {
+      events.forEach(x => x.onUnmount?.());
+    },
+  };
+};

@@ -1,4 +1,4 @@
-import { delay, scoped } from './async';
+import { delay } from './async';
 import { scope } from './scope';
 
 describe('scope', () => {
@@ -6,16 +6,16 @@ describe('scope', () => {
     const values = ['Ging', 'Gon'];
     const user = scope(() => ({ name: values.shift() }));
     const [, result] = user(async () => {
-      const of = scope();
+      const snapshot = scope();
       const result: any[] = [];
 
       await delay(10);
 
-      result.push(of(user)?.name);
+      result.push(snapshot(user)?.name);
 
       await delay(10);
 
-      result.push(of(user)?.name);
+      result.push(snapshot(user)?.name);
 
       return result;
     });
@@ -48,8 +48,8 @@ describe('scope', () => {
 
   test('should not overwrite promise methods if it has same snapshot', () => {
     const p = Promise.resolve(1);
-    const s1 = scoped(p).then;
-    const s2 = scoped(p).then;
+    const s1 = scope(p).then;
+    const s2 = scope(p).then;
 
     expect(s1).toBe(s2);
   });

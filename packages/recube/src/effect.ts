@@ -1,4 +1,6 @@
+import { isPromiseLike } from './utils';
 import { trackable } from './trackable';
+import { Equal, NoInfer } from './types';
 
 export type EffectContext = {
   /**
@@ -32,4 +34,47 @@ export const effect = (
     unwatch?.();
     dispose?.();
   };
+};
+
+/**
+ *
+ * @param evaluate
+ * @param callback
+ * @param equal
+ * @returns
+ */
+
+export const watch = <T>(
+  evaluate: () => T | PromiseLike<T>,
+  callback: (value: T) => void,
+  equal: Equal<NoInfer<T>> = Object.is,
+): VoidFunction => {
+  let prev: { value: T } | undefined;
+  let changedToken = {};
+
+  const setValue = (value: T) => {
+    changedToken = {};
+    if (!prev) {
+      prev = { value };
+    } else if (!equal(prev.value, value)) {
+      prev = { value };
+      callback(value);
+    }
+  };
+
+  return effect(() => {
+    const next = evaluate();
+    if (isPromiseLike<T>(next)) {
+      changedToken = {};
+      const prevChangedToken = changedToken;
+      next.then(value => {
+        if (prevChangedToken !== changedToken) {
+          return;
+        }
+        setValue(value);
+      });
+    } else {
+      setValue(next as T);
+    }
+  });
 };

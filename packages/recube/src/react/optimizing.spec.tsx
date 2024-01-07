@@ -16,7 +16,7 @@ describe('optimizing', () => {
 
       propsRef.current = props;
 
-      return <div onClick={rerender}>rerender</div>;
+      return <div onClick={() => rerender()}>rerender</div>;
     };
 
     const { rerender, getByText } = render(<Comp />);

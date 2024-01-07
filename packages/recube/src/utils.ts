@@ -103,3 +103,7 @@ export type Pipe = {
 
 export const pipe: Pipe = (initial: any, ...functions: AnyFunc[]) =>
   functions.reduce((result, func) => func(result), initial);
+
+export const isPromiseLike = <T>(value: any): value is Promise<T> => {
+  return value && typeof value.then === 'function';
+};

@@ -9,9 +9,9 @@ import {
 } from './types';
 import { objectKeyedMap } from './objectKeyedMap';
 import { emitter } from './emitter';
-import { async, isPromiseLike } from './async';
+import { async } from './async';
 import { trackable } from './trackable';
-import { NOOP, STRICT_EQUAL } from './utils';
+import { NOOP, STRICT_EQUAL, isPromiseLike } from './utils';
 import { Cancellable, cancellable } from './cancellable';
 import { disposable } from './disposable';
 import { scope } from './scope';
@@ -90,7 +90,9 @@ export const createDef = <T, P, E extends Record<string, any> = EO>(
       },
       set(valueOrReducer: any, params: any) {
         if (!mutable) {
-          throw new Error('State is not mutable');
+          throw new Error(
+            'The state value can be changed by dispatching action only',
+          );
         }
 
         const instance = instances.get(params);
@@ -306,14 +308,27 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
       unsubscribes.set(listenable, listenable.on(listener));
     },
     set(valueOrReducer) {
-      let next: any;
       if (typeof valueOrReducer === 'function') {
         recompute();
-        next = valueOrReducer(value);
-      } else {
-        next = valueOrReducer;
+
+        // when using reducer to mutate state value, the reducer needs prev state value
+        // but sometimes we cannot evaluate state value (init function throws error)
+        // we must re-throw the error to caller
+        if (error) {
+          throw error;
+        }
+
+        try {
+          change(valueOrReducer(value));
+        } catch (ex) {
+          error = ex;
+          onChange.emit();
+        }
+
+        return;
       }
-      change(next);
+
+      change(valueOrReducer);
     },
     peek() {
       return getValue(false);

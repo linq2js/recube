@@ -1,7 +1,7 @@
 import { produce } from 'immer';
 import { NoInfer } from './types';
-import { async, isPromiseLike } from './async';
-import { isObject } from './utils';
+import { async } from './async';
+import { isObject, isPromiseLike } from './utils';
 
 export type PropsOf<T> = T extends Promise<infer D> ? keyof D : keyof T;
 export type PropValueOf<T, P> = T extends PromiseLike<infer D>

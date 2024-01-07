@@ -5,10 +5,10 @@ import {
   ActionOptions,
   AnyFunc,
   Listener,
-  State,
+  MutableState,
 } from './types';
-import { async, isPromiseLike } from './async';
-import { NOOP, enqueue } from './utils';
+import { async } from './async';
+import { NOOP, enqueue, isPromiseLike } from './utils';
 import { cancellable } from './cancellable';
 import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
@@ -17,17 +17,6 @@ import { batchable } from './batchable';
 import { once as onceModifier } from './listenable';
 
 const DEFAULT_CALLING = () => false;
-
-class ActionData {
-  data: any;
-
-  type: 'error' | 'result';
-
-  constructor(data: ActionData['data'], type: ActionData['type']) {
-    this.type = type;
-    this.data = data;
-  }
-}
 
 export const createAction = (
   body?: AnyFunc,
@@ -45,24 +34,24 @@ export const createAction = (
     },
   }));
   const onceListenable = lazyValue(() => onceModifier(onDispatch));
-  const changeResultAction = lazyValue(
-    () => createAction() as Action<ActionData, ActionData>,
-  );
   const onDispose = emitter();
   const loadingAction = lazyValue(() => createAction() as Action<any, any>);
   const failedAction = lazyValue(
     () => createAction(createDef) as Action<any, any>,
   );
-  const resultState = lazyValue<State<any, void>>(() => {
+  const resultState = lazyValue<MutableState<any, void>>(() => {
     const [{ dispose }, result] = disposable(() =>
-      createDef<any, void>(callInfo.result, {
-        name: '#ACTION_RESULT',
-      }).when(changeResultAction(), (_, result) => {
-        if (result.type === 'error') {
-          throw result.data;
-        }
-        return result.data;
-      }),
+      createDef<any, void>(
+        () => {
+          if (callInfo.error) {
+            throw callInfo.error;
+          }
+          return callInfo.result;
+        },
+        {
+          name: '#ACTION_RESULT',
+        },
+      ),
     );
     onDispose.on(dispose);
     return result;
@@ -71,6 +60,7 @@ export const createAction = (
   // keep last result for late use with resultState
   const callInfo = {
     data: undefined as any,
+    error: undefined as any,
     /**
      * last payload
      */
@@ -184,11 +174,14 @@ export const createAction = (
     }
 
     if (error) {
-      changeResultAction.peek()?.(new ActionData(error, 'error'));
+      callInfo.error = error;
+      resultState.peek()?.set(() => {
+        throw error;
+      });
       failedAction.peek()?.({ payload, error });
       throw error;
     } else {
-      changeResultAction.peek()?.(new ActionData(result, 'result'));
+      resultState.peek()?.set(result);
     }
 
     return result;

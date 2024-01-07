@@ -1,3 +1,4 @@
+import { isPromiseLike } from './utils';
 import { AnyFunc, Dictionary } from './types';
 
 export type ScopeEvents = 'onExit' | 'onEnter';
@@ -24,19 +25,17 @@ export type ScopeDef<T> = {
 export type ScopeSnapshot = {
   readonly type: 'snapshot';
 
-  (): WeakMap<any, any>[];
-
   /**
    * get scope instance of single scope definition
    */
   <T>(scope: ScopeDef<T>): T;
 
+  <T extends Promise<any>>(promise: T): T;
+
   /**
-   * get scope instances of multiple scope definitions
+   * wrap fn with snapshot
    */
-  <T extends ScopeDef<any>[] | Dictionary<ScopeDef<any>>>(scopes: T): {
-    [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never;
-  };
+  <F extends AnyFunc>(fn: F, ...args: Parameters<F>): ReturnType<F>;
 };
 
 /**
@@ -59,12 +58,30 @@ export type UseScope = <T extends Dictionary<ScopeDef<any>>, R>(
   fn: () => R,
 ) => [{ [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never }, R];
 
-/**
- * use snapshot with specified fn
- */
-export type UseSnapshot = <T>(snapshot: ScopeSnapshot, fn: () => T) => T;
+export type Scope = {
+  /**
+   * get current snapshot
+   */
+  (): ScopeSnapshot;
 
-export type Scope = GetSnapshot & CreateScopeDef & UseScope & UseSnapshot;
+  /**
+   * create scope definition
+   */
+  <T extends Dictionary>(create: () => T): ScopeDef<T>;
+
+  /**
+   * wrap promise methods with current scope
+   */
+  <T extends Promise<any>>(promise: T): T;
+
+  /**
+   * apply scopes
+   */
+  <T extends Dictionary<ScopeDef<any>>, R>(defs: T, fn: () => R): [
+    { [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never },
+    R,
+  ];
+};
 
 /**
  * Storing the active scopes as stack. The structure is as follows, the active is the first:
@@ -79,6 +96,7 @@ export type Scope = GetSnapshot & CreateScopeDef & UseScope & UseSnapshot;
  */
 let activeScopeStack: WeakMap<any, ScopeDef<any>>[] = [];
 const SCOPE_SNAPSHOT_PROP = Symbol('scopeSnapshot');
+const SCOPE_STACK_PROP = Symbol('scopeStack');
 
 const find = (key: any, stack: WeakMap<any, any>[]) => {
   for (const item of stack) {
@@ -157,48 +175,110 @@ const applyScopes = <T>(
   }
 };
 
+const createSnapshot = () => {
+  let snapshot = (activeScopeStack as any)[
+    SCOPE_SNAPSHOT_PROP
+  ] as ScopeSnapshot;
+  if (!snapshot) {
+    const snapshotStack = activeScopeStack;
+    const wrap =
+      (fn: AnyFunc) =>
+      (...args: any[]) => {
+        const prevStack = activeScopeStack;
+        try {
+          activeScopeStack = snapshotStack;
+          return fn(...args);
+        } finally {
+          activeScopeStack = prevStack;
+        }
+      };
+
+    snapshot = Object.assign(
+      (value: any, ...args: any[]) => {
+        // snapshot(def)
+        // snapshot(fn)
+        if (typeof value === 'function') {
+          // snapshot(def)
+          if (value.type === 'scope') {
+            return find(value, snapshotStack);
+          }
+
+          // snapshot(fn)
+          return wrap(value)(...args);
+        }
+
+        if (isPromiseLike(value)) {
+          return wrapPromise(snapshot, value);
+        }
+
+        throw new Error(`No overload with ${typeof value}`);
+      },
+      { type: 'snapshot' as const },
+    );
+  }
+  (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP] = snapshot;
+
+  return snapshot;
+};
+
+const wrapPromise = <T extends Promise<any>>(
+  snapshot: ScopeSnapshot,
+  promise: T,
+): T => {
+  // same scope
+  if ((promise as any)[SCOPE_STACK_PROP] === snapshot) {
+    return promise;
+  }
+
+  const methods = {
+    finally: promise.finally?.bind(promise),
+    then: promise.then?.bind(promise),
+    catch: promise.catch?.bind(promise),
+  };
+  const wrap = (fn?: AnyFunc) => {
+    if (!fn) {
+      return undefined;
+    }
+    return (...args: any[]) => {
+      return snapshot(() => fn(...args));
+    };
+  };
+  return Object.assign(promise, {
+    [SCOPE_STACK_PROP]: snapshot,
+    then(...args: any[]) {
+      return wrapPromise(snapshot, methods.then(wrap(args[0]), wrap(args[1])));
+    },
+    catch: methods.catch
+      ? (...args: any[]) => {
+          return wrapPromise(snapshot, methods.catch(wrap(args[0])));
+        }
+      : undefined,
+    finally: methods.finally
+      ? (...args: any[]) => {
+          return wrapPromise(snapshot, methods.finally(wrap(args[0])));
+        }
+      : undefined,
+  });
+};
+
 export const scope: Scope = (...args: any[]): any => {
   // OVERLOAD: scope()
   if (!args.length) {
-    let snapshotMethods = (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP];
-
-    if (!snapshotMethods) {
-      const snapshot = activeScopeStack;
-      snapshotMethods = Object.assign(
-        (type: any) => {
-          if (!type) {
-            return snapshot;
-          }
-          // is ScopeDef
-          if (typeof type === 'function') {
-            return find(type, snapshot);
-          }
-          if (Array.isArray(type)) {
-            return type.map(x => find(x, snapshot));
-          }
-          const obj: Dictionary = {};
-          Object.keys(type).forEach(key => {
-            obj[key] = find(type[key], snapshot);
-          });
-          return obj;
-        },
-        { type: 'snapshot' },
-      );
-    }
-    (activeScopeStack as any)[SCOPE_SNAPSHOT_PROP] = snapshotMethods;
-
-    return snapshotMethods;
+    return createSnapshot();
   }
 
   // OVERLOAD: scope(create)
   if (args.length === 1) {
-    return createScope(args[0]);
+    if (typeof args[0] === 'function') {
+      return createScope(args[0]);
+    }
+    return createSnapshot()(args[0]);
   }
 
   // OVERLOAD: scope(snapshot, fn)
   if (typeof args[0] === 'function' && typeof args[1] === 'function') {
     const [snapshot, fn] = args as [ScopeSnapshot, AnyFunc];
-    return applyScopes(snapshot(), fn);
+    return snapshot(fn);
   }
 
   // OVERLOAD: scope(defs, fn)

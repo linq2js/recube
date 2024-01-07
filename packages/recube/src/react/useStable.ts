@@ -71,7 +71,7 @@ export const useStable: UseStable = (...args: any[]): any => {
   const [result] = useState(() => {
     if (typeof args[0] === 'function') {
       const init = args[0] as AnyFunc;
-      const [{ dispose }, result] = disposable(init);
+      const [{ dispose }, result] = disposable(() => init());
       disposeRef.current = dispose;
       return result;
     }
