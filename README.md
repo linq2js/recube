@@ -9,6 +9,7 @@
   - [How does Recube optimize rendering for components?](#how-does-recube-optimize-rendering-for-components)
   - [Optimizing component props](#optimizing-component-props)
     - [Memoizing stuff inside component and local states](#memoizing-stuff-inside-component-and-local-states)
+    - [Fine-grained reactivity](#fine-grained-reactivity)
   - [Working with async data in Recube](#working-with-async-data-in-recube)
     - [Storing and mutating async data](#storing-and-mutating-async-data)
     - [Rendering async data](#rendering-async-data)
@@ -441,25 +442,6 @@ const MemoizedComp = cube(props => {
 });
 ```
 
-In the example above, the component only re-renders when `numberList` changes, and `numberList` state changes when the `count` state changes. For further optimization, we can use `Recube`'s `part()` function.
-
-```jsx
-import { part } from 'recube/react';
-
-const MemoizedComp = cube(props => {
-  const stable = useStable(() => {});
-
-  return (
-    <>
-      <ul>{part(() => stable.numberList.map(x => <li key={x}>{x}</li>))}</ul>
-      <NonCubeButton ref={stable.buttonRef} onClick={stable.increment} />
-    </>
-  );
-});
-```
-
-With this approach, the component will never re-render even if the `count` state changes because frequently changing scope is encapsulated by the `part` function. The `part(fn)` function will track changes within the `fn` function and trigger a re-render, without affecting the host component.
-
 If you want to create stable callbacks that have accesses to the unstable values, you can use this overload of `useStable`
 
 ```jsx
@@ -497,6 +479,38 @@ const MyComponent = props => {
 ```
 
 > Remember that useStable can be used anywhere, even outside the cube component.
+
+### Fine-grained reactivity
+
+`Recube` enables a new way of thinking about how React components update: to observe state changing rather than observing renders. In this pattern, components render once and individual elements re-render themselves. This enables what we call a “render once” style - components render only the first time and state changes trigger only the tiniest possible re-renders.
+
+```jsx
+import { state } from 'recube';
+import { part } from 'recube/react';
+
+const count = state(0);
+const doubledCount = state(() => count() * 2);
+
+const App = () => {
+  const handleClick = () => {
+    count.set(prev => prev + 1);
+  };
+
+  return (
+    <>
+      <h1>Count: {part(count)}</h1>
+      <h1>Doubled Count: {part(doubledCount)}</h1>
+      {/* part can be used with normal compute function, not only state */}
+      <h1>Tripled Count: {part(() => count() + doubledCount())}</h1>
+      <button onClick={handleClick}>Increment</button>
+    </>
+  );
+};
+```
+
+With this approach, the component will never re-render even if the `count` state changes because frequently changing scope is encapsulated by the `part` function. The `part(fn)` function will track changes within the `fn` function and trigger a re-render, without affecting the host component.
+
+> Remember that part function can be used anywhere, even outside the cube component.
 
 ## Working with async data in Recube
 
