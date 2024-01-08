@@ -16,11 +16,9 @@ export type EmitterOptions<T> = {
   recent?: boolean;
 };
 
-export type CreateEmitter = <T = void>(
-  options?: EmitterOptions<T>,
-) => Emitter<T>;
+export type EmitterFn = <T = void>(options?: EmitterOptions<T>) => Emitter<T>;
 
-export const emitter: CreateEmitter = ({
+export const emitter: EmitterFn = ({
   onDispose,
   equal,
   once,

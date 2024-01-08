@@ -55,6 +55,77 @@ type ResolvedData = {
   key: any;
 };
 
+export type MaybePromise<T> = PromiseLike<T> | T;
+
+export type ChainResult<T> = T extends PromiseLike<any>
+  ? T
+  : T extends Record<string, any>
+  ? {
+      [key in keyof T]: Extract<T[key], MaybePromise<any>> extends MaybePromise<
+        infer D
+      >
+        ? D
+        : T[key];
+    }
+  : T;
+
+export type ChainFunc<P, R> = (payload: ChainResult<P>) => R;
+
+export type AsyncChainFn = {
+  <R1, R2>(initial: R1, f2: ChainFunc<R1, R2>): AsyncResult<ChainResult<R2>>;
+
+  <R1, R2, R3>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+  ): AsyncResult<ChainResult<R3>>;
+
+  <R1, R2, R3, R4>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+  ): AsyncResult<ChainResult<R4>>;
+
+  <R1, R2, R3, R4, R5>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+  ): AsyncResult<ChainResult<R5>>;
+
+  <R1, R2, R3, R4, R5, R6>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+  ): AsyncResult<ChainResult<R6>>;
+
+  <R1, R2, R3, R4, R5, R6, R7>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+    f7: ChainFunc<R4, R7>,
+  ): AsyncResult<ChainResult<R7>>;
+
+  <R1, R2, R3, R4, R5, R6, R7, R8>(
+    initial: R1,
+    f2: ChainFunc<R1, R2>,
+    f3: ChainFunc<R2, R3>,
+    f4: ChainFunc<R3, R4>,
+    f5: ChainFunc<R4, R5>,
+    f6: ChainFunc<R4, R6>,
+    f7: ChainFunc<R4, R7>,
+    f8: ChainFunc<R4, R8>,
+  ): AsyncResult<ChainResult<R8>>;
+};
+
 const ASYNC_RESULT_PROP = Symbol('asyncResult');
 
 const resolveData = (key: any, value: any): ResolvedData => {
@@ -118,7 +189,7 @@ const resolveAsyncItem = (item: ResolvedData) => {
   if (item.error) {
     return scope(async.reject(item.error));
   }
-  return scope(async.resolve(item.data));
+  return scope(asyncResult(item.data));
 };
 
 export const race: RaceFn = (awaitable: any) => {
@@ -135,7 +206,7 @@ export const race: RaceFn = (awaitable: any) => {
         }
 
         result[first.key] = first.data;
-        return scope(async.resolve(result));
+        return scope(asyncResult(result));
       }
 
       const promises = loading.map(({ promise, key }) =>
@@ -177,7 +248,7 @@ export const all: AllFn = (awaitable: any) => {
       }
 
       // fulfilled
-      return scope(async.resolve(result));
+      return scope(asyncResult(result));
     },
   );
 };
@@ -289,25 +360,40 @@ const asyncResultProps = <T = any>(
   return ar;
 };
 
-export const async = Object.assign(
-  <T = any>(promise: Promise<T>): AsyncResult<T> => {
-    if (!isPromiseLike(promise)) {
-      return async.resolve(promise);
+export type AsyncFn = {
+  <T = any>(value: T | Promise<T>): AsyncResult<T>;
+
+  reject: (reason: any) => AsyncResult<any>;
+
+  func: <T>(
+    asyncImport: () => Promise<T>,
+  ) => T extends AnyFunc ? T : T extends { default: infer F } ? F : never;
+} & AsyncChainFn;
+
+const asyncResult = <T>(value: T | Promise<T>): AsyncResult<T> => {
+  if (!isPromiseLike(value)) {
+    return asyncResultProps(Promise.resolve(value), false, value, undefined);
+  }
+
+  return asyncResultProps<T>(value, true, undefined, undefined);
+};
+
+export const async: AsyncFn = Object.assign(
+  (...args: any[]) => {
+    // OVERLOAD: async(initial, f1, f2, f3, ...)
+    if (typeof args[1] === 'function') {
+      return (asyncChain as AnyFunc)(...args);
     }
 
-    return asyncResultProps(promise, true, undefined, undefined);
+    // OVERLOAD: async(value)
+    return asyncResult(args[0]);
   },
   {
-    resolve<T = any>(value: Promise<T> | T): AsyncResult<T> {
-      if (isPromiseLike(value)) {
-        return async(value);
-      }
-      return asyncResultProps(Promise.resolve(value), false, value, undefined);
-    },
     reject(reason: any) {
       if (isPromiseLike(reason)) {
-        return async(reason);
+        return asyncResult(reason);
       }
+
       return asyncResultProps(
         Promise.reject(reason).catch(NOOP),
         false,
@@ -371,85 +457,14 @@ export const delay = (ms = 0) => {
   );
 };
 
-export type MaybePromise<T> = PromiseLike<T> | T;
-
-export type ChainResult<T> = T extends PromiseLike<any>
-  ? T
-  : T extends Record<string, any>
-  ? {
-      [key in keyof T]: Extract<T[key], MaybePromise<any>> extends MaybePromise<
-        infer D
-      >
-        ? D
-        : T[key];
-    }
-  : T;
-
-export type ChainFunc<P, R> = (payload: ChainResult<P>) => R;
-
-export type Chain = {
-  <R1, R2>(initial: R1, f2: ChainFunc<R1, R2>): Promise<ChainResult<R2>>;
-
-  <R1, R2, R3>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-  ): Promise<ChainResult<R3>>;
-
-  <R1, R2, R3, R4>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-    f4: ChainFunc<R3, R4>,
-  ): Promise<ChainResult<R4>>;
-
-  <R1, R2, R3, R4, R5>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-    f4: ChainFunc<R3, R4>,
-    f5: ChainFunc<R4, R5>,
-  ): Promise<ChainResult<R5>>;
-
-  <R1, R2, R3, R4, R5, R6>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-    f4: ChainFunc<R3, R4>,
-    f5: ChainFunc<R4, R5>,
-    f6: ChainFunc<R4, R6>,
-  ): Promise<ChainResult<R6>>;
-
-  <R1, R2, R3, R4, R5, R6, R7>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-    f4: ChainFunc<R3, R4>,
-    f5: ChainFunc<R4, R5>,
-    f6: ChainFunc<R4, R6>,
-    f7: ChainFunc<R4, R7>,
-  ): Promise<ChainResult<R7>>;
-
-  <R1, R2, R3, R4, R5, R6, R7, R8>(
-    initial: R1,
-    f2: ChainFunc<R1, R2>,
-    f3: ChainFunc<R2, R3>,
-    f4: ChainFunc<R3, R4>,
-    f5: ChainFunc<R4, R5>,
-    f6: ChainFunc<R4, R6>,
-    f7: ChainFunc<R4, R7>,
-    f8: ChainFunc<R4, R8>,
-  ): Promise<ChainResult<R8>>;
-};
-
-export const chain: Chain = (initial: any, ...funcs: AnyFunc[]) => {
+const asyncChain: AsyncChainFn = (initial: any, ...funcs: AnyFunc[]) => {
   if (!funcs.length) {
     throw new Error('Chain requires at least one function');
   }
 
   const snapshot = scope();
 
-  return Promise.resolve(
+  return asyncResult(
     [() => initial, ...funcs].reduceRight((next, func) => (payload: any) => {
       const result = snapshot(() => func(payload));
 

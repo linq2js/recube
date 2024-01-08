@@ -13,7 +13,7 @@ export type PropValueOf<T, P> = T extends PromiseLike<infer D>
   ? T[P]
   : never;
 
-export type Alter = {
+export type AlterFn = {
   /**
    * alter single prop with return value of specified reducer
    */
@@ -41,7 +41,7 @@ export type Alter = {
   ): (value: T | PromiseLike<T>, ...args: A) => T;
 };
 
-export const alter: Alter = (...args: any[]) => {
+export const alter: AlterFn = (...args: any[]) => {
   if (args.length > 1) {
     return alterProp(args[0], args[1]);
   }
@@ -121,7 +121,7 @@ const alterValue =
       }
 
       const next = reducerWrapper(ar.data);
-      return async.resolve(next) as any;
+      return async(next) as any;
     }
 
     return reducerWrapper(value) as any;

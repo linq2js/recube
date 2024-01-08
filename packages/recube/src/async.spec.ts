@@ -1,9 +1,18 @@
 import { action } from './action';
 import { alter } from './alter';
-import { async, delay, loadable, wait, chain } from './async';
+import { all, async, delay, loadable, race, wait } from './async';
 import { state } from './state';
 
 describe('async', () => {
+  test('no need to wait if all promises are resolved', () => {
+    const v1 = async(1);
+    const v2 = async(2);
+    const v3 = race({ v1, v2 });
+    const v4 = all({ v3 });
+    const v5 = async({ v4 }, x => x.v4);
+    expect(v5.data).toEqual({ v3: { v1: 1 } });
+  });
+
   test('wait() should inject current watcher to async thread automatically', async () => {
     const change4 = action();
     const s1 = state(1);
@@ -16,7 +25,7 @@ describe('async', () => {
     const sum = state(() => {
       const v1 = s1() + s2();
 
-      return chain(
+      return async(
         { _delay: delay(10), v2: s3() },
         ({ v2 }) => ({ v2, v3: s4() }),
         ({ v2, v3 }) => v1 + v2 + v3,
@@ -90,7 +99,7 @@ describe('loadable', () => {
   test('loadable: array', () => {
     const [l1, l2, l3] = loadable([
       undefined,
-      async.resolve(1),
+      async(1),
       async.reject('error'),
     ] as const);
 
@@ -102,7 +111,7 @@ describe('loadable', () => {
   test('loadable: object', () => {
     const r = loadable({
       l1: undefined,
-      l2: async.resolve(1),
+      l2: async(1),
       l3: async.reject('error'),
     });
 
@@ -114,7 +123,7 @@ describe('loadable', () => {
 
 describe('wait', () => {
   test('wait: fulfilled', () => {
-    const r = wait([async.resolve(1), async.resolve(true)]);
+    const r = wait([async(1), async(true)]);
     expect(r).toEqual([1, true]);
   });
 

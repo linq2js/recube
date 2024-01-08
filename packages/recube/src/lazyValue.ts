@@ -12,9 +12,9 @@ export type LazyValue<T> = {
   reset: () => void;
 };
 
-export type CreateLazyValue = <T>(creator: () => T) => LazyValue<T>;
+export type LazyValueFn = <T>(creator: () => T) => LazyValue<T>;
 
-export const lazyValue: CreateLazyValue = (creator: AnyFunc) => {
+export const lazyValue: LazyValueFn = (creator: AnyFunc) => {
   let cache: { value: any; type: Exclude<LazyValueState, 'unset'> } | undefined;
   let unwatch: VoidFunction | undefined;
   const onReset = emitter<void>();

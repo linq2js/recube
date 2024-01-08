@@ -15,6 +15,7 @@ export const disposable = scope(() => {
     },
     add(dispose: VoidFunction) {
       disposes.add(dispose);
+      return () => disposes.delete(dispose);
     },
   };
 });

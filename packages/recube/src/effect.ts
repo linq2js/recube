@@ -1,6 +1,7 @@
 import { isPromiseLike } from './utils';
 import { trackable } from './trackable';
 import { Equal, NoInfer } from './types';
+import { disposable } from './disposable';
 
 export type EffectContext = {
   /**
@@ -18,22 +19,28 @@ export const effect = (
   fn: (context: EffectContext) => void | VoidFunction,
 ): VoidFunction => {
   let unwatch: VoidFunction | undefined;
-  let dispose: VoidFunction | undefined;
+  let onDispose: VoidFunction | undefined;
+  let cleanupDisposable: VoidFunction | undefined;
   const context = { count: 0 };
   const runEffect = () => {
     unwatch?.();
     const [{ track: watch }, result] = trackable(() => fn(context));
-    dispose = typeof result === 'function' ? result : undefined;
+    onDispose = typeof result === 'function' ? result : undefined;
     context.count++;
     unwatch = watch(runEffect);
   };
 
+  const stopEffect = () => {
+    unwatch?.();
+    onDispose?.();
+    cleanupDisposable?.();
+  };
+
+  cleanupDisposable = disposable()?.add(stopEffect);
+
   runEffect();
 
-  return () => {
-    unwatch?.();
-    dispose?.();
-  };
+  return stopEffect;
 };
 
 /**
