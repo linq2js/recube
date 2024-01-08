@@ -1,12 +1,18 @@
-import { ReactNode, createElement, useEffect, useRef } from 'react';
+import { ReactNode, createElement, memo, useEffect, useRef } from 'react';
 import { trackable } from '../trackable';
-import { AnyFunc } from '../types';
+import { AnyFunc, Equal, NoInfer } from '../types';
 import { useRerender } from './useRerender';
 
-const Part = (props: { fn: AnyFunc }) => {
+/**
+ * there are 2 characteristics of part()
+ * 1. part(stateFn) => the Part should not re-render even its parent component re-renders because stateFn is constant
+ * 2. part(customFn) => the Part should re-render to ensure the function result is up to date
+ */
+const Part = memo((props: { fn: AnyFunc; equal?: Equal }) => {
   const rerender = useRerender();
   const trackedRef = useRef<{ result: any; untrack: VoidFunction }>();
   const startTracking = () => {
+    // already track
     if (trackedRef.current) {
       return trackedRef.current.result;
     }
@@ -34,8 +40,8 @@ const Part = (props: { fn: AnyFunc }) => {
   trackedRef.current = undefined;
 
   return startTracking();
-};
+});
 
-export const part = <T>(fn: () => T): ReactNode => {
-  return createElement(Part, { fn });
+export const part = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactNode => {
+  return createElement(Part, { fn, equal });
 };
