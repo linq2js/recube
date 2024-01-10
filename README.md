@@ -13,7 +13,7 @@
   - [Working with async data in Recube](#working-with-async-data-in-recube)
     - [Storing and mutating async data](#storing-and-mutating-async-data)
     - [Rendering async data](#rendering-async-data)
-  - [state.set, the magic method](#stateset-the-magic-method)
+  - [As easy as possible to use](#as-easy-as-possible-to-use)
 
 <!-- vscode-markdown-toc-config
 	numbering=false
@@ -677,7 +677,7 @@ const NormalComponent = () => {
 };
 ```
 
-## state.set, the magic method
+## As easy as possible to use
 
 `Recube` operates similarly to Redux, where any `state` changes by `action` dispatching. However, sometimes we want to swiftly change the state value directly without dispatching any `action`. `Recube` allows you to do this using state.set.
 
@@ -691,4 +691,15 @@ count1.set(prev => prev + 1); // OK
 const increment = action();
 const count2 = state(2).when(increment, prev => prev + 1);
 count2.set(3); // ❌ ERROR: The state value can be changed by dispatching action only
+```
+
+A mini version of counter app that using `state` and `part` only
+
+```js
+import { state } from 'recube';
+import { part } from 'recube/react';
+
+// just 2 lines only
+const count = state(1);
+const App = () => <h1 onClick={() => count.set(x => x + 1)}>{part(count)}</h1>;
 ```

@@ -136,3 +136,62 @@ describe('canceler', () => {
     increment();
   });
 });
+
+describe('staling', () => {
+  test('error', () => {
+    let throwError = true;
+    const log = jest.fn();
+    const stale = action();
+    const factor = state(() => {
+      log('factor:compute');
+      return 2;
+    });
+    const count = state(() => {
+      if (throwError) {
+        throwError = false;
+        throw new Error('invalid');
+      }
+      return 1;
+    });
+    const doubledCount = state(
+      () =>
+        // dont put factor() behind count() because we need to make sure factor() must be called no matter count() throws error or not
+        factor() * count(),
+    ).when(stale, {
+      stale: true,
+    });
+    expect(doubledCount).toThrow('invalid');
+    stale();
+    expect(doubledCount()).toBe(2);
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  test('all', () => {
+    let throwError = true;
+    const log = jest.fn();
+    const stale = action();
+    const factor = state(() => {
+      log('factor:compute');
+      return 2;
+    });
+    const count = state(() => {
+      if (throwError) {
+        throwError = false;
+        throw new Error('invalid');
+      }
+      return 1;
+    });
+    const doubledCount = state(
+      () =>
+        // dont put factor() behind count() because we need to make sure factor() must be called no matter count() throws error or not
+        factor() * count(),
+    ).when(stale, {
+      stale: true,
+      includeDependencies: 'all',
+    });
+    expect(doubledCount).toThrow('invalid');
+    stale();
+    expect(doubledCount()).toBe(2);
+    expect(log).toHaveBeenCalledTimes(2);
+  });
+});

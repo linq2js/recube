@@ -54,7 +54,7 @@ export const Counter = () => {
 
   return (
     <>
-      <button onClick={rerender}>Rerender</button>
+      <button onClick={() => rerender()}>Rerender</button>
       <CounterValue />
       <CounterActions />
     </>

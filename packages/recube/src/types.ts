@@ -26,6 +26,7 @@ export type StateContext<T, P> = {
 
 export type StaleOptions<TValue, TData> = {
   stale: true | ((value: TValue, data: TData) => boolean);
+  includeDependencies?: 'all' | 'error';
 };
 
 export type Listenable<T = any> = {

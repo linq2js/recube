@@ -15,6 +15,7 @@ import { NOOP, STRICT_EQUAL, isPromiseLike } from './utils';
 import { Cancellable, cancellable } from './cancellable';
 import { disposable } from './disposable';
 import { scope } from './scope';
+import { stalable } from './stallable';
 
 export type StateInstance = {
   get: () => any;
@@ -118,6 +119,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   // hold computation error
   let error: any;
   let currentCancellable: Cancellable | undefined;
+  let requestStaleOptions: StaleOptions<any, any> | undefined;
   let changeToken = {};
   const onChange = emitter();
   const onDispose = emitter();
@@ -125,6 +127,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
   const change = (nextValue: any) => {
     staled = false;
+    requestStaleOptions = undefined;
     if (equalFn(value, nextValue)) {
       // nothing change
       return;
@@ -139,13 +142,36 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     onChange.emit(value);
   };
 
+  const shouldStale = (mode: 'all' | 'error' | 'none') => {
+    if (!mode || mode === 'none' || staled) {
+      return;
+    }
+    if (mode === 'all') {
+      staled = true;
+    } else if (error) {
+      staled = true;
+    }
+  };
+
   const recompute = (forceRecompute?: boolean) => {
     if (forceRecompute) {
       staled = true;
     }
 
     if (!staled) {
-      return;
+      // checking stale mode of dependents
+      const dependentStaleMode = stalable()?.mode;
+
+      shouldStale(dependentStaleMode ?? 'none');
+      shouldStale(
+        requestStaleOptions
+          ? requestStaleOptions.includeDependencies ?? 'error'
+          : 'none',
+      );
+
+      if (!staled) {
+        return;
+      }
     }
 
     currentCancellable?.cancel();
@@ -153,17 +179,24 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
     staled = false;
     error = undefined;
+    const staleOptions = requestStaleOptions;
+    requestStaleOptions = undefined;
 
     if (typeof init === 'function') {
       cleanup?.();
       const [scopes, result] = scope(
-        { cancellable, disposable, trackable },
+        { cancellable, disposable, trackable, stalable },
         () => {
           try {
             return (init as AnyFunc)(params);
           } catch (ex) {
             error = ex;
             return undefined;
+          }
+        },
+        x => {
+          if (staleOptions) {
+            x.stalable.mode = staleOptions.includeDependencies ?? 'error';
           }
         },
       );
@@ -300,6 +333,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
           }
           // mark as staled
           staled = true;
+          requestStaleOptions = staleOptions;
           onChange.emit();
         };
       }

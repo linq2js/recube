@@ -19,7 +19,7 @@ export const useRerender = (
     };
 
     return (dependencies?: any[]) => {
-      if (!dependencies) {
+      if (!Array.isArray(dependencies)) {
         prevArgs = undefined;
         rerender();
       } else if (

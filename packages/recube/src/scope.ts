@@ -13,7 +13,13 @@ export type ScopeDef<T> = {
   /**
    * execute a function with new scope instance of this definition or give scope snapshot
    */
-  <R>(fn: () => R, snapshot?: T | ScopeSnapshot): [T, R];
+  <R>(
+    fn: () => R,
+    customScopeOrSnapshotOrScopeModifier?:
+      | T
+      | ((scope: T) => void)
+      | ScopeSnapshot,
+  ): [T, R];
 
   /**
    * create new scope instance
@@ -57,14 +63,6 @@ export type CreateScopeDef = <T extends Dictionary>(
   create: () => T,
 ) => ScopeDef<T>;
 
-/**
- * use scope with specified fn
- */
-export type UseScope = <T extends Dictionary<ScopeDef<any>>, R>(
-  defs: T,
-  fn: () => R,
-) => [{ [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never }, R];
-
 export type Scope = {
   /**
    * get current snapshot
@@ -84,10 +82,13 @@ export type Scope = {
   /**
    * apply scopes
    */
-  <T extends Dictionary<ScopeDef<any>>, R>(defs: T, fn: () => R): [
-    { [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never },
-    R,
-  ];
+  <T extends Dictionary<ScopeDef<any>>, R>(
+    defs: T,
+    fn: () => R,
+    modifier?: (scopes: {
+      [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never;
+    }) => void,
+  ): [{ [key in keyof T]: T[key] extends ScopeDef<infer I> ? I : never }, R];
 };
 
 let currentSnapshot: ScopeSnapshot;
@@ -105,9 +106,21 @@ const createScope = (create: AnyFunc) => {
       return get();
     }
     const [fn, snapshot] = args;
-    const customScope =
-      typeof snapshot === 'function' ? snapshot(accessor) : snapshot;
-    const scopeInstance = customScope ?? create();
+    let scopeInstance: any;
+    let scopeModifier: AnyFunc | undefined;
+
+    if (typeof snapshot === 'function') {
+      if (snapshot.type === 'snapshot') {
+        scopeInstance = snapshot(accessor);
+      } else {
+        scopeInstance = create();
+        scopeModifier = snapshot;
+      }
+    } else {
+      scopeInstance = snapshot ?? create();
+    }
+
+    scopeModifier?.(scopeInstance);
 
     return [
       scopeInstance,
@@ -272,7 +285,11 @@ export const scope: Scope = (...args: any[]): any => {
   }
 
   // OVERLOAD: scope(defs, fn)
-  const [scopeTypes, fn] = args as [Record<string, ScopeDef<any>>, AnyFunc];
+  const [scopeTypes, fn, modifier] = args as [
+    Record<string, ScopeDef<any>>,
+    AnyFunc,
+    AnyFunc | undefined,
+  ];
   const scopes: Dictionary = {};
   const scopeMap = new Map();
   Object.keys(scopeTypes).forEach(key => {
@@ -281,7 +298,7 @@ export const scope: Scope = (...args: any[]): any => {
     scopes[key] = scopeInstance;
     scopeMap.set(scopeType, scopeInstance);
   });
-
+  modifier?.(scopes);
   return [scopes, currentSnapshot(scopeMap, fn)];
 };
 
