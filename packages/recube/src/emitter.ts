@@ -27,30 +27,9 @@ export const emitter: EmitterFn = ({
   let emitting = false;
   let emitted: { args: any } | undefined;
   let disposed = false;
-  const unsubscribeMap = new WeakMap<Listener<any>, VoidFunction>();
   const listeners = new Set<Listener>();
   const queue: { type: 'add' | 'delete'; listener: Listener }[] = [];
 
-  const getUnsubscribe = (listener: Listener<any>) => {
-    let unsubscribe = unsubscribeMap.get(listener);
-    if (!unsubscribe) {
-      let active = true;
-      unsubscribe = () => {
-        if (!active) {
-          return;
-        }
-        active = false;
-        if (emitting) {
-          queue.push({ type: 'delete', listener });
-        } else {
-          listeners.delete(listener);
-        }
-      };
-
-      unsubscribeMap.set(listener, unsubscribe);
-    }
-    return unsubscribe;
-  };
   const e: Emitter<any> = {
     size() {
       return listeners.size;
@@ -86,7 +65,18 @@ export const emitter: EmitterFn = ({
         listeners.add(listener);
       }
 
-      return getUnsubscribe(listener);
+      let active = true;
+      return () => {
+        if (!active) {
+          return;
+        }
+        active = false;
+        if (emitting) {
+          queue.push({ type: 'delete', listener });
+        } else {
+          listeners.delete(listener);
+        }
+      };
     },
     emitted() {
       return Boolean(emitted);
