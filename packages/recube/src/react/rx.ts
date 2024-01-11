@@ -4,9 +4,9 @@ import { AnyFunc, Equal, NoInfer } from '../types';
 import { useRerender } from './useRerender';
 
 /**
- * there are 2 characteristics of part()
- * 1. part(stateFn) => the Part should not re-render even its parent component re-renders because stateFn is constant
- * 2. part(customFn) => the Part should re-render to ensure the function result is up to date
+ * there are 2 characteristics of rx()
+ * 1. rx(stateFn) => the Part should not re-render even its parent component re-renders because stateFn is constant
+ * 2. rx(customFn) => the Part should re-render to ensure the function result is up to date
  */
 const Part = memo((props: { fn: AnyFunc; equal?: Equal }) => {
   const rerender = useRerender();
@@ -42,6 +42,6 @@ const Part = memo((props: { fn: AnyFunc; equal?: Equal }) => {
   return startTracking();
 });
 
-export const part = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactNode => {
+export const rx = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactNode => {
   return createElement(Part, { fn, equal });
 };

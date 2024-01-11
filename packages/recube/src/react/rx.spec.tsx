@@ -2,10 +2,10 @@ import { act, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { action } from '../action';
 import { state } from '../state';
-import { part } from './part';
+import { rx } from './rx';
 
-describe('part', () => {
-  test('part', () => {
+describe('rx', () => {
+  test('rx', () => {
     const rerender = jest.fn();
     const increment = action();
     const count = state(1).when(increment, x => x + 1);
@@ -13,7 +13,7 @@ describe('part', () => {
       rerender();
       return (
         <h1 data-testid="value" onClick={() => increment()}>
-          {part(count)}
+          {rx(count)}
         </h1>
       );
     };
