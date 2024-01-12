@@ -1,7 +1,6 @@
-import { ReactNode, createElement, memo, useEffect, useRef } from 'react';
-import { trackable } from '../trackable';
+import { ReactNode, createElement, memo } from 'react';
 import { AnyFunc, Equal, NoInfer } from '../types';
-import { useRerender } from './useRerender';
+import { useComputed } from './useComputed';
 
 /**
  * there are 2 characteristics of rx()
@@ -9,37 +8,7 @@ import { useRerender } from './useRerender';
  * 2. rx(customFn) => the Part should re-render to ensure the function result is up to date
  */
 const Part = memo((props: { fn: AnyFunc; equal?: Equal }) => {
-  const rerender = useRerender();
-  const trackedRef = useRef<{ result: any; untrack: VoidFunction }>();
-  const startTracking = () => {
-    // already track
-    if (trackedRef.current) {
-      return trackedRef.current.result;
-    }
-
-    const [{ track }, result] = trackable(props.fn);
-
-    trackedRef.current = {
-      result,
-      untrack: track(rerender),
-    };
-
-    return result;
-  };
-
-  useEffect(() => {
-    // in strict mode, it re-renders twice
-    startTracking();
-
-    return () => {
-      trackedRef.current?.untrack();
-      trackedRef.current = undefined;
-    };
-  });
-
-  trackedRef.current = undefined;
-
-  return startTracking();
+  return useComputed(props.fn, props.equal);
 });
 
 export const rx = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactNode => {

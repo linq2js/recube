@@ -12,9 +12,17 @@ export type LazyValue<T> = {
   reset: () => void;
 };
 
-export type LazyValueFn = <T>(creator: () => T) => LazyValue<T>;
+export type LazyValueOptions = { track?: boolean };
 
-export const lazyValue: LazyValueFn = (creator: AnyFunc) => {
+export type LazyValueFn = <T>(
+  creator: () => T,
+  options?: LazyValueOptions,
+) => LazyValue<T>;
+
+export const lazyValue: LazyValueFn = (
+  creator: AnyFunc,
+  { track }: LazyValueOptions = {},
+) => {
   let cache: { value: any; type: Exclude<LazyValueState, 'unset'> } | undefined;
   let unwatch: VoidFunction | undefined;
   const onReset = emitter<void>();
@@ -51,7 +59,9 @@ export const lazyValue: LazyValueFn = (creator: AnyFunc) => {
 
       const result = getResult();
 
-      trackable()?.add(onReset);
+      if (track) {
+        trackable()?.add(onReset);
+      }
 
       return result;
     },

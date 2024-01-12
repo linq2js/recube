@@ -1,39 +1,29 @@
 import { ReactElement, useEffect, useRef } from 'react';
 import { trackable } from '../trackable';
-import { NOOP } from '..';
-import { useRerender } from './useRerender';
 import { stable } from './stable';
+import { useRerender } from './useRerender';
 
 export const cube = <P extends Record<string, any>>(
   render: (props: P) => ReactElement,
 ) => {
   return stable<P>(props => {
-    const unwatchRef = useRef(NOOP);
-    const rerender = useRerender();
-    let rendering = true;
-    const [{ track: watch }, result] = trackable(() => render(props));
+    const renrender = useRerender();
+    //  should use track manually because render function might contain React hooks
+    const [{ track }, result] = trackable(() => render(props));
+    const untrackRef = useRef<VoidFunction>();
 
-    let hasChangeDuringRendering = false;
-    unwatchRef.current = watch(() => {
-      if (rendering && !hasChangeDuringRendering) {
-        hasChangeDuringRendering = true;
-        return;
-      }
-      rerender();
-    });
+    untrackRef.current = track(() => renrender());
 
     useEffect(() => {
-      rendering = false;
-      if (hasChangeDuringRendering) {
-        unwatchRef.current();
-        rerender();
-        return NOOP;
+      if (!untrackRef.current) {
+        renrender();
       }
 
-      return watch(() => {
-        unwatchRef.current();
-      });
-    });
+      return () => {
+        untrackRef.current?.();
+        untrackRef.current = undefined;
+      };
+    }, [renrender]);
 
     return result;
   });
