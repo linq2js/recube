@@ -70,8 +70,8 @@ describe('when', () => {
   });
 
   test('error #2', () => {
-    const increment = action();
-    const count = state(1).when(increment.recent(), () => {
+    const increment = action({ once: { recent: true } });
+    const count = state(1).when(increment, () => {
       throw new Error('error');
       return 1;
     });
@@ -193,5 +193,24 @@ describe('staling', () => {
     stale();
     expect(doubledCount()).toBe(2);
     expect(log).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('creation', () => {
+  test('lazy', () => {
+    const increment = action();
+    const count = state(0).when(increment, prev => prev + 1);
+    // perform action dispatching before any count state is created
+    increment();
+    expect(count()).toBe(0);
+  });
+
+  test('eager', () => {
+    const increment = action();
+    // at this time, the count state is already created because the state retrieves initial value, not parameterized init function
+    const count = state(0, { eager: true }).when(increment, prev => prev + 1);
+
+    increment();
+    expect(count()).toBe(1);
   });
 });

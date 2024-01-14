@@ -4,7 +4,6 @@ import {
   ActionMiddlewareContext,
   ActionOptions,
   AnyFunc,
-  Listener,
   MutableState,
 } from './types';
 import { async } from './async';
@@ -14,7 +13,6 @@ import { lazyValue } from './lazyValue';
 import { disposable } from './disposable';
 import { createDef } from './createState';
 import { batchable } from './batchable';
-import { once as onceModifier } from './listenable';
 
 const DEFAULT_CALLING = () => false;
 
@@ -23,17 +21,8 @@ export const createAction = (
   options: ActionOptions<any> = {},
   middleware: AnyFunc[] = [],
 ) => {
-  const { equal, once, recent } = options;
-  const onDispatch = emitter<any>({ recent });
-  const recentListenable = lazyValue(() => ({
-    on(listener: Listener) {
-      if (callInfo.count) {
-        listener(callInfo.data);
-      }
-      return onDispatch.on(listener);
-    },
-  }));
-  const onceListenable = lazyValue(() => onceModifier(onDispatch));
+  const { equal, once } = options;
+  const onDispatch = emitter<any>({ once });
   const onDispose = emitter();
   const loadingAction = lazyValue(() => createAction() as Action<any, any>);
   const failedAction = lazyValue(
@@ -235,8 +224,6 @@ export const createAction = (
         middleware.push(...newMiddleware);
         return instance;
       },
-      recent: recentListenable,
-      once: onceListenable,
     },
   );
 

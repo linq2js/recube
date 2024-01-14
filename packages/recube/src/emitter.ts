@@ -1,4 +1,4 @@
-import { Listener, Listenable, Equal } from './types';
+import { Listener, Listenable, Equal, OnceOptions } from './types';
 import { NOOP } from './utils';
 
 export type Emitter<T> = Listenable<T> & {
@@ -12,8 +12,7 @@ export type Emitter<T> = Listenable<T> & {
 export type EmitterOptions<T> = {
   onDispose?: VoidFunction;
   equal?: Equal<T>;
-  once?: boolean;
-  recent?: boolean;
+  once?: boolean | OnceOptions;
 };
 
 export type EmitterFn = <T = void>(options?: EmitterOptions<T>) => Emitter<T>;
@@ -22,7 +21,6 @@ export const emitter: EmitterFn = ({
   onDispose,
   equal,
   once,
-  recent,
 }: EmitterOptions<any> = {}) => {
   let emitting = false;
   let emitted: { args: any } | undefined;
@@ -52,10 +50,11 @@ export const emitter: EmitterFn = ({
     on(listener) {
       if (emitted) {
         if (once) {
+          if (typeof once === 'object' && once.recent) {
+            listener(emitted.args);
+          }
+
           return NOOP;
-        }
-        if (recent) {
-          listener(emitted.args);
         }
       }
 

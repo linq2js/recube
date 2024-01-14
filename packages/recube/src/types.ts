@@ -149,10 +149,6 @@ export type Action<TData = void, TPayload = void, TReturn = TData> = Listenable<
    * @returns
    */
   cancel: () => void;
-
-  once: () => Listenable<TData>;
-
-  recent: () => Listenable<TData>;
 };
 
 export type Listener<T = any> = (args: T) => void;
@@ -180,13 +176,13 @@ export type ImmutableType =
 export type StateOptions<T> = {
   name?: string;
   equal?: Equal<NoInfer<T>>;
+  eager?: boolean;
 };
 
 export type ActionOptions<T> = {
   name?: string;
   equal?: Equal<T>;
-  once?: boolean;
-  recent?: boolean;
+  once?: boolean | OnceOptions;
 };
 
 export type CreateState = <T, P = void>(
@@ -207,10 +203,15 @@ export type ExtraActions<TData, TPayload> = {
 };
 
 export type CreateAction = {
-  <TData = void>(): Action<TData, TData> & ExtraActions<TData, TData>;
-  <TData, TPayload = void>(body: (payload: TPayload) => TData): Action<
+  <TData = void>(options?: ActionOptions<NoInfer<TData>>): Action<
     TData,
-    TPayload
+    TData
   > &
-    ExtraActions<TData, TPayload>;
+    ExtraActions<TData, TData>;
+  <TData, TPayload = void>(
+    body: (payload: TPayload) => TData,
+    options?: ActionOptions<NoInfer<TData>>,
+  ): Action<TData, TPayload> & ExtraActions<TData, TPayload>;
 };
+
+export type OnceOptions = { recent?: boolean };

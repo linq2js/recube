@@ -3,19 +3,11 @@ import { once, any } from './listenable';
 import { state } from './state';
 
 describe('listenable', () => {
-  test('recent only', () => {
-    const increment = action();
-    // dispatch action before state created
-    increment();
-    const count = state(1).when(increment.recent(), prev => prev + 1);
-    expect(count()).toBe(2);
-  });
-
   test('recent and once', () => {
-    const increment = action();
+    const increment = action({ once: { recent: true } });
     // dispatch action before state created
     increment();
-    const count = state(1).when(once(increment.recent()), prev => prev + 1);
+    const count = state(1).when(once(increment), prev => prev + 1);
     increment();
     increment();
     increment();
@@ -23,10 +15,10 @@ describe('listenable', () => {
   });
 
   test('once', () => {
-    const increment = action();
+    const increment = action({ once: true });
     // dispatch action before state created
     increment();
-    const count = state(1).when(increment.once(), prev => prev + 1);
+    const count = state(1).when(increment, prev => prev + 1);
     increment();
     increment();
     increment();

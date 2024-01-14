@@ -33,7 +33,7 @@ const DEFAULT_REDUCER = (_: any, result: any) => result;
 
 export const createDef = <T, P, E extends Record<string, any> = EO>(
   init: T | ((params: P) => T),
-  { equal = STRICT_EQUAL }: StateOptions<T> = {},
+  { equal = STRICT_EQUAL, eager }: StateOptions<T> = {},
   enhancer?: (state: MutableState<T, P>) => E,
 ): E & MutableState<T, P> => {
   const instances = objectKeyedMap({
@@ -107,6 +107,12 @@ export const createDef = <T, P, E extends Record<string, any> = EO>(
   );
 
   disposable()?.add(definition.wipe);
+
+  // create a state immediately if eager === true and state init function has no parameter
+  // by default if state creation is lazy, before first access, states cannot handle any action dispatching
+  if (eager && (typeof init !== 'function' || !init.length)) {
+    (definition as AnyFunc)();
+  }
 
   return Object.assign(definition, enhancer?.(definition));
 };
