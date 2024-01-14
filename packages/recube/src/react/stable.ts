@@ -4,7 +4,9 @@ import {
   createElement,
   forwardRef,
   memo,
+  useEffect,
   useRef,
+  useState,
 } from 'react';
 import { AnyFunc } from '../types';
 import { NOOP } from '../utils';
@@ -63,22 +65,24 @@ export const stable = <P extends Record<string, any>>(
     const container = props.__container;
 
     container.propUsages.clear();
+    container.rendering = true;
 
-    try {
-      container.rendering = true;
-      return render(container.propsProxy);
-    } finally {
+    const result = render(container.propsProxy);
+
+    container.rendering = false;
+
+    useEffect(() => {
       container.rendering = false;
-    }
+    });
+
+    return result;
   });
 
   return forwardRef<P extends { ref: ForwardedRef<infer R> } ? R : never, P>(
     (props, ref) => {
       const renderResultRef = useRef<any>();
       const currentRef = useRef({ ref, props });
-      const containerRef = useRef<ContainerInfo>();
-
-      if (!containerRef.current) {
+      const [container] = useState<ContainerInfo>(() => {
         let rendering = false;
         const callbacks = stableCallbackMap();
         const propUsages = new Set<string>();
@@ -107,7 +111,7 @@ export const stable = <P extends Record<string, any>>(
           );
         };
 
-        containerRef.current = {
+        return {
           propUsages,
           get rendering() {
             return rendering;
@@ -135,19 +139,19 @@ export const stable = <P extends Record<string, any>>(
             },
           }),
         };
-      }
+      });
 
       currentRef.current = { ref, props };
 
       if (!propsChangeOptimizationEnabled) {
         return createElement(Inner, {
           ...(props as any),
-          __container: containerRef.current,
+          __container: container,
         });
       }
 
       // if the inner component has no prop accessor, just return previous render result
-      if (renderResultRef.current && !containerRef.current.propUsages.size) {
+      if (renderResultRef.current && !container.propUsages.size) {
         return renderResultRef.current.value;
       }
 
@@ -164,7 +168,7 @@ export const stable = <P extends Record<string, any>>(
       renderResultRef.current = {
         value: createElement(Inner, {
           ...selectedProps,
-          __container: containerRef.current,
+          __container: container,
         }),
       };
 
