@@ -1,4 +1,4 @@
-import { ReactNode, createElement, memo } from 'react';
+import { ReactElement, createElement, memo } from 'react';
 import { AnyFunc, Equal, NoInfer } from '../types';
 import { useComputed } from './useComputed';
 
@@ -11,6 +11,6 @@ const Part = memo((props: { fn: AnyFunc; equal?: Equal }) => {
   return useComputed(props.fn, props.equal);
 });
 
-export const rx = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactNode => {
+export const rx = <T>(fn: () => T, equal?: Equal<NoInfer<T>>): ReactElement => {
   return createElement(Part, { fn, equal });
 };

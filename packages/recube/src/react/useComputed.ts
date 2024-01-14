@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { effect } from '../effect';
 import { Equal, NoInfer } from '../types';
 import { useRerender } from './useRerender';
@@ -10,11 +10,11 @@ export const useComputed = <T>(
   const rerender = useRerender();
   const unwatchRef = useRef<VoidFunction>();
   const prevRef = useRef<any>();
-  const handleEffect = () => {
-    if (unwatchRef.current) {
+  const handleEffect = (force?: boolean) => {
+    if (!force && unwatchRef.current) {
       return;
     }
-
+    unwatchRef.current?.();
     unwatchRef.current = effect(({ count }) => {
       const next = fn();
       const isFirstRun = !count;
@@ -28,7 +28,9 @@ export const useComputed = <T>(
     });
   };
 
-  handleEffect();
+  useMemo(() => {
+    handleEffect(true);
+  }, [fn, equal]);
 
   useEffect(() => {
     handleEffect();

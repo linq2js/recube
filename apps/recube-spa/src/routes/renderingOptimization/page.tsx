@@ -85,7 +85,7 @@ const Parent = () => {
     >
       <strong>Parent component</strong>
       <div>
-        <button onClick={rerender}>Re-render</button>
+        <button onClick={() => rerender()}>Re-render</button>
         <button onClick={() => setCount(count + 1)}>
           Change count {count}
         </button>

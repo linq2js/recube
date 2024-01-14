@@ -4,7 +4,6 @@ import { NOOP } from './utils';
 export type Emitter<T> = Listenable<T> & {
   size: () => number;
   emit: (args: T) => void;
-  emitted: () => boolean;
   dispose: () => void;
   clear: () => void;
 };
@@ -22,29 +21,30 @@ export const emitter: EmitterFn = ({
   equal,
   once,
 }: EmitterOptions<any> = {}) => {
-  let emitting = false;
   let emitted: { args: any } | undefined;
   let disposed = false;
-  const listeners = new Set<Listener>();
-  const queue: { type: 'add' | 'delete'; listener: Listener }[] = [];
+  const listeners: Listener[] = [];
+
+  const clear = () => {
+    listeners.length = 0;
+  };
 
   const e: Emitter<any> = {
     size() {
-      return listeners.size;
+      return listeners.length;
     },
     emit(args) {
-      if (emitted && equal?.(emitted.args, args)) {
-        return;
+      if (emitted) {
+        if (once || equal?.(emitted.args, args)) {
+          return;
+        }
       }
-      emitting = true;
       emitted = { args };
-      try {
-        listeners.forEach(listener => listener(args));
-      } finally {
-        emitting = false;
-        queue.splice(-queue.length).forEach(({ type, listener }) => {
-          listeners[type](listener);
-        });
+
+      if (listeners.length) {
+        for (const listener of listeners.slice(0)) {
+          listener(args);
+        }
       }
     },
     on(listener) {
@@ -57,28 +57,20 @@ export const emitter: EmitterFn = ({
           return NOOP;
         }
       }
-
-      if (emitting) {
-        queue.push({ type: 'add', listener });
-      } else {
-        listeners.add(listener);
-      }
+      listeners[listeners.length] = listener;
 
       let active = true;
+
       return () => {
         if (!active) {
           return;
         }
         active = false;
-        if (emitting) {
-          queue.push({ type: 'delete', listener });
-        } else {
-          listeners.delete(listener);
+        const index = listeners.indexOf(listener);
+        if (index !== -1) {
+          listeners.splice(index, 1);
         }
       };
-    },
-    emitted() {
-      return Boolean(emitted);
     },
     dispose() {
       if (disposed) {
@@ -87,10 +79,7 @@ export const emitter: EmitterFn = ({
       disposed = true;
       onDispose?.();
     },
-    clear() {
-      listeners.clear();
-      queue.length = 0;
-    },
+    clear,
   };
 
   return e;

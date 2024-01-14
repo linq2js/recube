@@ -12,6 +12,7 @@ export const cube = <P extends Record<string, any>>(
     const [{ track }, result] = trackable(() => render(props));
     const untrackRef = useRef<VoidFunction>();
 
+    untrackRef.current?.();
     untrackRef.current = track(() => renrender());
 
     useEffect(() => {
@@ -23,7 +24,7 @@ export const cube = <P extends Record<string, any>>(
         untrackRef.current?.();
         untrackRef.current = undefined;
       };
-    }, [renrender]);
+    }, []);
 
     return result;
   });

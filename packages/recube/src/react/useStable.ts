@@ -4,6 +4,11 @@ import { NOOP } from '../utils';
 import { disposable } from '../disposable';
 import { stableCallbackMap } from './stable';
 
+export type StableEvents = {
+  onMount?: VoidFunction | (() => VoidFunction);
+  onUnmount?: VoidFunction;
+};
+
 export type StableCallbacks<T extends Record<string, any>> = {
   [key in keyof T]: T[key] extends AnyFunc ? T[key] : () => T[key];
 };
@@ -65,14 +70,15 @@ const createCallbackProxy = (
 
 export const useStable: UseStable = (...args: any[]): any => {
   const inputRef = useRef(typeof args[0] === 'function' ? {} : args[0]);
-  const disposeRef = useRef(NOOP);
+  const disposeOfInitPhaseRef = useRef(NOOP);
+  const disposeOfMountPhaseRef = useRef(NOOP);
   inputRef.current = typeof args[0] === 'function' ? {} : args[0];
 
   const [result] = useState(() => {
     if (typeof args[0] === 'function') {
       const init = args[0] as AnyFunc;
       const [{ dispose }, result] = disposable(() => init());
-      disposeRef.current = dispose;
+      disposeOfInitPhaseRef.current = dispose;
       return result;
     }
 
@@ -80,7 +86,7 @@ export const useStable: UseStable = (...args: any[]): any => {
       const proxy = createCallbackProxy(inputRef);
       const init = args[1] as AnyFunc;
       const [{ dispose }, result] = disposable(() => init(proxy));
-      disposeRef.current = dispose;
+      disposeOfInitPhaseRef.current = dispose;
       return result;
     }
 
@@ -93,11 +99,14 @@ export const useStable: UseStable = (...args: any[]): any => {
     const { onMount, onUnmount } = result || {};
     let onUnmount2: VoidFunction | undefined;
     if (typeof onMount === 'function') {
-      onUnmount2 = onMount();
+      const [{ dispose }, result] = disposable(onMount);
+      onUnmount2 = result as typeof onUnmount2;
+      disposeOfMountPhaseRef.current = dispose;
     }
 
     return () => {
-      disposeRef.current();
+      disposeOfInitPhaseRef.current();
+      disposeOfMountPhaseRef.current();
 
       if (typeof onUnmount === 'function') {
         onUnmount();
@@ -110,4 +119,31 @@ export const useStable: UseStable = (...args: any[]): any => {
   }, [result]);
 
   return result;
+};
+
+export const mergeEvents = (
+  ...events: StableEvents[]
+): Required<StableEvents> => {
+  return {
+    onMount() {
+      const unmounts: VoidFunction[] = [];
+      events.forEach(x => {
+        const unmount = x.onMount?.();
+        if (unmount) {
+          unmounts.push(unmount);
+        }
+      });
+
+      if (unmounts.length) {
+        return () => {
+          unmounts.forEach(x => x());
+        };
+      }
+
+      return NOOP;
+    },
+    onUnmount() {
+      events.forEach(x => x.onUnmount?.());
+    },
+  };
 };

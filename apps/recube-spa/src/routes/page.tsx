@@ -9,6 +9,7 @@ const links = {
   '/conditionalDependency': 'Conditional Dependency',
   '/distinct': 'Distinct',
   '/loadable': 'Loadable',
+  '/performance': 'Performance',
 } as Record<string, string>;
 
 const IndexPage = () => (

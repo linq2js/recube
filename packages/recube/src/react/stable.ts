@@ -4,9 +4,7 @@ import {
   createElement,
   forwardRef,
   memo,
-  useEffect,
   useRef,
-  useState,
 } from 'react';
 import { AnyFunc } from '../types';
 import { NOOP } from '../utils';
@@ -65,24 +63,22 @@ export const stable = <P extends Record<string, any>>(
     const container = props.__container;
 
     container.propUsages.clear();
-    container.rendering = true;
 
-    const result = render(container.propsProxy);
-
-    container.rendering = false;
-
-    useEffect(() => {
+    try {
+      container.rendering = true;
+      return render(container.propsProxy);
+    } finally {
       container.rendering = false;
-    });
-
-    return result;
+    }
   });
 
   return forwardRef<P extends { ref: ForwardedRef<infer R> } ? R : never, P>(
     (props, ref) => {
       const renderResultRef = useRef<any>();
       const currentRef = useRef({ ref, props });
-      const [container] = useState<ContainerInfo>(() => {
+      const containerRef = useRef<ContainerInfo>();
+
+      if (!containerRef.current) {
         let rendering = false;
         const callbacks = stableCallbackMap();
         const propUsages = new Set<string>();
@@ -111,7 +107,7 @@ export const stable = <P extends Record<string, any>>(
           );
         };
 
-        return {
+        containerRef.current = {
           propUsages,
           get rendering() {
             return rendering;
@@ -139,19 +135,19 @@ export const stable = <P extends Record<string, any>>(
             },
           }),
         };
-      });
+      }
 
       currentRef.current = { ref, props };
 
       if (!propsChangeOptimizationEnabled) {
         return createElement(Inner, {
           ...(props as any),
-          __container: container,
+          __container: containerRef.current,
         });
       }
 
       // if the inner component has no prop accessor, just return previous render result
-      if (renderResultRef.current && !container.propUsages.size) {
+      if (renderResultRef.current && !containerRef.current.propUsages.size) {
         return renderResultRef.current.value;
       }
 
@@ -168,43 +164,11 @@ export const stable = <P extends Record<string, any>>(
       renderResultRef.current = {
         value: createElement(Inner, {
           ...selectedProps,
-          __container: container,
+          __container: containerRef.current,
         }),
       };
 
       return renderResultRef.current.value;
     },
   );
-};
-
-export type StableEvents = {
-  onMount?: VoidFunction | (() => VoidFunction);
-  onUnmount?: VoidFunction;
-};
-
-export const mergeEvents = (
-  ...events: StableEvents[]
-): Required<StableEvents> => {
-  return {
-    onMount() {
-      const unmounts: VoidFunction[] = [];
-      events.forEach(x => {
-        const unmount = x.onMount?.();
-        if (unmount) {
-          unmounts.push(unmount);
-        }
-      });
-
-      if (unmounts.length) {
-        return () => {
-          unmounts.forEach(x => x());
-        };
-      }
-
-      return NOOP;
-    },
-    onUnmount() {
-      events.forEach(x => x.onUnmount?.());
-    },
-  };
 };

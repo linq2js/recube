@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   AnyFunc,
   Listenable,
@@ -15,7 +16,8 @@ import { NOOP, STRICT_EQUAL, isPromiseLike } from './utils';
 import { Cancellable, cancellable } from './cancellable';
 import { disposable } from './disposable';
 import { scope } from './scope';
-import { stalable } from './stallable';
+import { outDatable } from './outDatable';
+import { batchable } from './batchable';
 
 export type StateInstance = {
   get: () => any;
@@ -131,7 +133,24 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
   const onDispose = emitter();
   const unsubscribes = new Map<Listenable, VoidFunction>();
 
-  const change = (nextValue: any) => {
+  const notifyValueChange = () => {
+    onChange.emit(value);
+  };
+
+  const notify = (canApplyBatchUpdate = false) => {
+    if (canApplyBatchUpdate) {
+      const addToBatch = batchable()?.add;
+
+      if (addToBatch) {
+        addToBatch(notifyValueChange);
+        return;
+      }
+    }
+
+    notifyValueChange();
+  };
+
+  const change = (nextValue: any, canApplyBatchUpdate = false) => {
     staled = false;
     requestStaleOptions = undefined;
     if (equalFn(value, nextValue)) {
@@ -145,7 +164,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
     value = nextValue;
     changeToken = {};
-    onChange.emit(value);
+    notify(canApplyBatchUpdate);
   };
 
   const shouldStale = (mode: 'all' | 'error' | 'none') => {
@@ -166,7 +185,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
 
     if (!staled) {
       // checking stale mode of dependents
-      const dependentStaleMode = stalable()?.mode;
+      const dependentStaleMode = outDatable()?.mode;
 
       shouldStale(dependentStaleMode ?? 'none');
       shouldStale(
@@ -191,7 +210,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
     if (typeof init === 'function') {
       cleanup?.();
       const [scopes, result] = scope(
-        { cancellable, disposable, trackable, stalable },
+        { cancellable, disposable, trackable, outDatable },
         () => {
           try {
             return (init as AnyFunc)(params);
@@ -200,14 +219,13 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
             return undefined;
           }
         },
-        x => {
+        ({ outDatable, cancellable }) => {
+          currentCancellable = cancellable;
           if (staleOptions) {
-            x.stalable.mode = staleOptions.includeDependencies ?? 'error';
+            outDatable.mode = staleOptions.includeDependencies ?? 'error';
           }
         },
       );
-
-      currentCancellable = scopes.cancellable;
 
       // we keep watching even if an error occurs
       const unwatch = scopes.trackable.track(() => {
@@ -323,7 +341,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
             change(nextValue);
           } catch (ex) {
             error = ex;
-            onChange.emit();
+            notify();
           }
         };
       }
@@ -340,7 +358,7 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
           // mark as staled
           staled = true;
           requestStaleOptions = staleOptions;
-          onChange.emit();
+          notify();
         };
       }
 
@@ -359,16 +377,16 @@ const createInstance = <P>(init: any, params: P, equalFn: AnyFunc) => {
         }
 
         try {
-          change(valueOrReducer(value));
+          change(valueOrReducer(value), true);
         } catch (ex) {
           error = ex;
-          onChange.emit();
+          notify(true);
         }
 
         return;
       }
 
-      change(valueOrReducer);
+      change(valueOrReducer, true);
     },
     peek() {
       return getValue(false);

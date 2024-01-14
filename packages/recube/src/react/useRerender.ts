@@ -1,34 +1,19 @@
-import { useMemo, useRef, useState } from 'react';
-import { Equal } from 'src/types';
+import { useRef, useState } from 'react';
 
-const DEFAULT_STATE = {};
+const DEFAULT_VERSION = {};
 
-export const useRerender = (
-  onRerender?: VoidFunction,
-  equal: Equal = Object.is,
-): ((dependencies?: any[]) => void) => {
-  const originRerender = useState(DEFAULT_STATE)[1];
-  const onRerenderRef = useRef(onRerender);
-  onRerenderRef.current = onRerender;
+export const useRerender = (onRerender?: VoidFunction) => {
+  const setVersion = useState(DEFAULT_VERSION)[1];
+  const nextRef = useRef({ version: DEFAULT_VERSION, onRerender });
+  const rerenderRef = useRef<VoidFunction>();
+  nextRef.current = { version: {}, onRerender };
 
-  return useMemo(() => {
-    let prevArgs: any[] | undefined;
-    const rerender = () => {
-      originRerender({});
-      onRerenderRef.current?.();
+  if (!rerenderRef.current) {
+    rerenderRef.current = () => {
+      setVersion(nextRef.current);
+      nextRef.current.onRerender?.();
     };
+  }
 
-    return (dependencies?: any[]) => {
-      if (!Array.isArray(dependencies)) {
-        prevArgs = undefined;
-        rerender();
-      } else if (
-        !prevArgs ||
-        prevArgs.some((x, i) => equal(x, dependencies[i]))
-      ) {
-        prevArgs = dependencies;
-        rerender();
-      }
-    };
-  }, [originRerender]);
+  return rerenderRef.current;
 };
