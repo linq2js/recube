@@ -1,5 +1,5 @@
 import { render, fireEvent, act } from '@testing-library/react';
-import { PropsWithChildren, Suspense } from 'react';
+import { PropsWithChildren, Suspense, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { action } from '../action';
 import { state } from '../state';
@@ -209,6 +209,8 @@ describe('rendering', () => {
     const doSomething = action(() => delay(10));
 
     const Comp = cube(() => {
+      useState();
+      useState();
       const { loading } = loadable(doSomething.result);
       return <div>{loading ? 'loading' : 'none'}</div>;
     });

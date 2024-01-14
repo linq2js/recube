@@ -340,6 +340,7 @@ const asyncResultProps = <T = any>(
         }
         listener();
       });
+
       return () => {
         active = false;
       };

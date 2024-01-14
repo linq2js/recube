@@ -5,12 +5,15 @@ describe('lazyValue', () => {
     const log = jest.fn();
     const aPossibles = [1, 2];
     const bPossibles = [4, 5];
-    const lazyA = lazyValue(() => aPossibles.shift() ?? 0);
-    const lazyB = lazyValue(() => bPossibles.shift() ?? 0);
-    const lazySum = lazyValue(() => {
-      log();
-      return lazyA() + lazyB();
-    });
+    const lazyA = lazyValue(() => aPossibles.shift() ?? 0, { track: true });
+    const lazyB = lazyValue(() => bPossibles.shift() ?? 0, { track: true });
+    const lazySum = lazyValue(
+      () => {
+        log();
+        return lazyA() + lazyB();
+      },
+      { track: true },
+    );
 
     expect(lazySum()).toBe(5);
     expect(lazySum()).toBe(5);

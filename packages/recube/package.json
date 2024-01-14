@@ -1,6 +1,6 @@
 {
   "name": "recube",
-  "version": "2.26.2",
+  "version": "2.26.5",
   "types": "dist/ts/index.d.ts",
   "main": "dist/ts/index.js",
   "private": true,
