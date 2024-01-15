@@ -24,7 +24,8 @@ export const emitter: EmitterFn = ({
   let emitted: { args: any } | undefined;
   let disposed = false;
   let emitting = false;
-  const listeners = new Map<object, AnyFunc>();
+  let uniqueId = 0;
+  const listeners = new Map<number, AnyFunc>();
   let isNew = new WeakSet<AnyFunc>();
 
   const clear = () => {
@@ -70,7 +71,7 @@ export const emitter: EmitterFn = ({
         }
       }
 
-      const key = {};
+      const key = uniqueId++;
       listeners.set(key, listener);
 
       if (emitting) {

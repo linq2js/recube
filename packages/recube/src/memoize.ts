@@ -6,11 +6,12 @@ import { NOOP } from './utils';
 export type MemoizeOptions = {
   size?: number;
   equal?: Equal;
+  track?: boolean;
 };
 
 export const memoize = <R, A extends any[]>(
   fn: (...args: A) => R,
-  { size, equal = Object.is }: MemoizeOptions = {},
+  { size, equal = Object.is, track: trackingEnabled }: MemoizeOptions = {},
 ) => {
   let calls: {
     args: A;
@@ -43,17 +44,26 @@ export const memoize = <R, A extends any[]>(
       if (cached) {
         return cached.result;
       }
-      const [{ track: watch }, result] = trackable(() => fn(...args));
       if (size && calls.length >= size) {
         calls.shift()?.unwatch?.();
       }
-      const unwatch = watch(() => {
-        const index = calls.indexOf(call);
-        if (index !== -1) {
-          calls.splice(index, 1)[0].unwatch?.();
-        }
-      });
-      const call = { args, result, unwatch };
+
+      if (trackingEnabled) {
+        const [{ track }, result] = trackable(() => fn(...args));
+
+        const unwatch = track(() => {
+          const index = calls.indexOf(call);
+          if (index !== -1) {
+            calls.splice(index, 1)[0].unwatch?.();
+          }
+        });
+        const call = { args, result, unwatch };
+        calls.push(call);
+        return result;
+      }
+
+      const result = fn(...args);
+      const call = { args, result };
       calls.push(call);
       return result;
     },
