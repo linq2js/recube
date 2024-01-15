@@ -11,19 +11,14 @@ export type ScopeDef<T> = {
   (): Omit<T, ScopeEvents> | undefined;
 
   /**
-   * execute a function with new scope instance of this definition or give scope snapshot
+   * execute a function with new scope instance
    */
   <R>(fn: () => R, scope?: T): [T, R];
 
   /**
    * execute a function with new scope instance of this definition or give scope snapshot
    */
-  <R>(fn: () => R, snapshot: ScopeSnapshot): [T, R];
 
-  /**
-   * execute a function with new scope instance of this definition or give scope snapshot
-   */
-  // eslint-disable-next-line @typescript-eslint/unified-signatures
   <R>(fn: () => R, modifier: (scope: T) => void): [T, R];
 
   /**
@@ -39,21 +34,24 @@ export type ScopeSnapshot = {
   readonly stack: WeakMap<ScopeDef<any>, any>[];
 
   /**
-   * get scope instance of single scope definition
+   * get scope instance
    */
-  <T>(scope: ScopeDef<T>): T;
+  <T>(def: ScopeDef<T>): T;
 
+  /**
+   * wrap a promise with current scopes
+   */
   <T extends Promise<any>>(promise: T): T;
 
   /**
-   * wrap fn with snapshot
+   * wrap fn with current scopes
    */
   <F extends AnyFunc>(fn: F, ...args: Parameters<F>): ReturnType<F>;
 
   /**
    * call a function with specified scopes
    */
-  <T>(scopes: Map<any, any>, fn: () => T): T;
+  <T>(defs: Map<ScopeDef<any>, object>, fn: () => T): T;
 };
 
 /**
@@ -97,45 +95,42 @@ export type Scope = {
 };
 
 let currentSnapshot: ScopeSnapshot;
-const SNAPSHOT_PROP = Symbol('snapshot');
 
 const createScope = (create: AnyFunc) => {
-  let accessor: AnyFunc;
-
-  const get = () => {
-    return currentSnapshot(accessor);
-  };
-
-  accessor = (...args: any[]) => {
+  const accessor = (...args: any[]): any => {
+    // OVERLOAD: scopeDef() get current instance of this scope type
     if (!args.length) {
-      return get();
+      return currentSnapshot(accessor);
     }
-    const [fn, snapshot] = args;
+
+    const [fn, modifier] = args;
     let scopeInstance: any;
     let scopeModifier: AnyFunc | undefined;
 
-    if (typeof snapshot === 'function') {
-      if (snapshot.type === 'snapshot') {
-        scopeInstance = snapshot(accessor);
-      } else {
-        scopeInstance = create();
-        scopeModifier = snapshot;
-      }
+    // OVERLOAD: scopeDef(fn, modifier?)
+    if (typeof modifier === 'function') {
+      scopeInstance = create();
+      scopeModifier = modifier;
     } else {
-      scopeInstance = snapshot ?? create();
+      // OVERLOAD: scopeDef(fn, scopeInstance?)
+      scopeInstance = modifier ?? create();
     }
 
     scopeModifier?.(scopeInstance);
 
     return [
       scopeInstance,
-      currentSnapshot(new Map([[accessor, scopeInstance]]), fn),
+      currentSnapshot(
+        new Map([[accessor as unknown as ScopeDef<any>, scopeInstance]]),
+        fn,
+      ),
     ];
   };
 
   return Object.assign(accessor, { type: 'scope', new: create }) as any;
 };
 
+const snapshotOf = new WeakMap<any, ScopeSnapshot>();
 /**
  * @param stack Storing the active scopes as stack. The structure is as follows, the active is the first:
  * ```
@@ -162,9 +157,11 @@ const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
 
   const wrapPromise = <T extends Promise<any>>(promise: T): T => {
     // same scope
-    if ((promise as any)[SNAPSHOT_PROP] === snapshot) {
+    if (snapshotOf.get(promise) === snapshot) {
       return promise;
     }
+
+    snapshotOf.set(promise, snapshot);
 
     const methods = {
       finally: promise.finally?.bind(promise),
@@ -173,7 +170,6 @@ const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
     };
 
     return Object.assign(promise, {
-      [SNAPSHOT_PROP]: snapshot,
       then(onResolve?: AnyFunc, onReject?: AnyFunc) {
         return wrapPromise(
           methods.then(
@@ -298,8 +294,7 @@ export const scope: Scope = (...args: any[]): any => {
   ];
   const scopes: Dictionary = {};
   const scopeMap = new Map();
-  Object.keys(scopeTypes).forEach(key => {
-    const scopeType = scopeTypes[key];
+  Object.entries(scopeTypes).forEach(([key, scopeType]) => {
     const scopeInstance = scopeType.new();
     scopes[key] = scopeInstance;
     scopeMap.set(scopeType, scopeInstance);

@@ -24,12 +24,12 @@ export const emitter: EmitterFn = ({
   let emitted: { args: any } | undefined;
   let disposed = false;
   let emitting = false;
-  let uniqueKey = 0;
-  const IS_NEW_PROP = Symbol('isNew');
-  const listeners = new Map<any, AnyFunc & { [IS_NEW_PROP]?: boolean }>();
+  const listeners = new Map<object, AnyFunc>();
+  let isNew = new WeakSet<AnyFunc>();
 
   const clear = () => {
     listeners.clear();
+    isNew = new WeakSet();
   };
 
   const e: Emitter<any> = {
@@ -48,8 +48,8 @@ export const emitter: EmitterFn = ({
         try {
           emitting = true;
           listeners.forEach(listener => {
-            if (listener[IS_NEW_PROP]) {
-              delete listener[IS_NEW_PROP];
+            if (isNew.has(listener)) {
+              isNew.delete(listener);
             } else {
               listener(args);
             }
@@ -70,12 +70,12 @@ export const emitter: EmitterFn = ({
         }
       }
 
-      const key = uniqueKey++;
-      if (emitting) {
-        (listener as any)[IS_NEW_PROP] = true;
-      }
-
+      const key = {};
       listeners.set(key, listener);
+
+      if (emitting) {
+        isNew.add(listener);
+      }
 
       let active = true;
 
@@ -85,6 +85,7 @@ export const emitter: EmitterFn = ({
         }
         active = false;
         listeners.delete(key);
+        isNew.delete(listener);
       };
     },
     dispose() {
@@ -93,6 +94,7 @@ export const emitter: EmitterFn = ({
       }
       disposed = true;
       onDispose?.();
+      clear();
     },
     clear,
   };
