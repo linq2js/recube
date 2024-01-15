@@ -1,4 +1,4 @@
-import { Listener, Listenable, Equal, OnceOptions } from './types';
+import { Listenable, Equal, OnceOptions, AnyFunc } from './types';
 import { NOOP } from './utils';
 
 export type Emitter<T> = Listenable<T> & {
@@ -23,15 +23,18 @@ export const emitter: EmitterFn = ({
 }: EmitterOptions<any> = {}) => {
   let emitted: { args: any } | undefined;
   let disposed = false;
-  const listeners: Listener[] = [];
+  let emitting = false;
+  let uniqueKey = 0;
+  const IS_NEW_PROP = Symbol('isNew');
+  const listeners = new Map<any, AnyFunc & { [IS_NEW_PROP]?: boolean }>();
 
   const clear = () => {
-    listeners.length = 0;
+    listeners.clear();
   };
 
   const e: Emitter<any> = {
     size() {
-      return listeners.length;
+      return listeners.size;
     },
     emit(args) {
       if (emitted) {
@@ -41,9 +44,18 @@ export const emitter: EmitterFn = ({
       }
       emitted = { args };
 
-      if (listeners.length) {
-        for (const listener of listeners.slice(0)) {
-          listener(args);
+      if (listeners.size) {
+        try {
+          emitting = true;
+          listeners.forEach(listener => {
+            if (listener[IS_NEW_PROP]) {
+              delete listener[IS_NEW_PROP];
+            } else {
+              listener(args);
+            }
+          });
+        } finally {
+          emitting = false;
         }
       }
     },
@@ -57,7 +69,13 @@ export const emitter: EmitterFn = ({
           return NOOP;
         }
       }
-      listeners[listeners.length] = listener;
+
+      const key = uniqueKey++;
+      if (emitting) {
+        (listener as any)[IS_NEW_PROP] = true;
+      }
+
+      listeners.set(key, listener);
 
       let active = true;
 
@@ -66,10 +84,7 @@ export const emitter: EmitterFn = ({
           return;
         }
         active = false;
-        const index = listeners.indexOf(listener);
-        if (index !== -1) {
-          listeners.splice(index, 1);
-        }
+        listeners.delete(key);
       };
     },
     dispose() {

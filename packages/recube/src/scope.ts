@@ -13,13 +13,18 @@ export type ScopeDef<T> = {
   /**
    * execute a function with new scope instance of this definition or give scope snapshot
    */
-  <R>(
-    fn: () => R,
-    customScopeOrSnapshotOrScopeModifier?:
-      | T
-      | ((scope: T) => void)
-      | ScopeSnapshot,
-  ): [T, R];
+  <R>(fn: () => R, scope?: T): [T, R];
+
+  /**
+   * execute a function with new scope instance of this definition or give scope snapshot
+   */
+  <R>(fn: () => R, snapshot: ScopeSnapshot): [T, R];
+
+  /**
+   * execute a function with new scope instance of this definition or give scope snapshot
+   */
+  // eslint-disable-next-line @typescript-eslint/unified-signatures
+  <R>(fn: () => R, modifier: (scope: T) => void): [T, R];
 
   /**
    * create new scope instance
@@ -195,7 +200,7 @@ const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
   const applyScopes = <T>(scopes: Map<any, any>, fn: () => T): T => {
     const prevSnapshot = currentSnapshot;
 
-    currentSnapshot = createSnapshot([new WeakMap(scopes), ...stack]);
+    currentSnapshot = createSnapshot([new WeakMap(scopes)].concat(stack));
 
     try {
       if ('get' in scopes) {
@@ -233,7 +238,8 @@ const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
   };
 
   const snapshot = Object.assign(
-    (value: any, ...args: any[]) => {
+    (...args: any[]) => {
+      const value = args[0];
       // OVERLOAD: snapshot(def)
       // OVERLOAD: snapshot(fn)
       if (typeof value === 'function') {
@@ -243,15 +249,15 @@ const createSnapshot = (stack: WeakMap<ScopeDef<any>, any>[] = []) => {
         }
 
         // OVERLOAD: snapshot(fn)
-        return wrapFunction(value)(...args);
+        return wrapFunction(value)(...args.slice(1));
       }
 
       if (isPromiseLike(value)) {
         return wrapPromise(value);
       }
 
-      if (value instanceof Map && typeof args[0] === 'function') {
-        return applyScopes(value, args[0]);
+      if (value instanceof Map && typeof args[1] === 'function') {
+        return applyScopes(value, args[1]);
       }
 
       throw new Error(`No overload with ${typeof value}`);

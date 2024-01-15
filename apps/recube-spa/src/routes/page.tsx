@@ -10,6 +10,8 @@ const links = {
   '/distinct': 'Distinct',
   '/loadable': 'Loadable',
   '/performance': 'Performance',
+  '/performanceSignal': 'Performance (Preact/Signal)',
+  '/performanceLegend': 'Performance (LegendApp/State)',
 } as Record<string, string>;
 
 const IndexPage = () => (

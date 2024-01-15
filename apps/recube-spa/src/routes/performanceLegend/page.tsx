@@ -1,21 +1,29 @@
-import { batch, state } from 'recube';
-import { cube, rx } from 'recube/react';
+import { ObservablePrimitiveBaseFns, observable } from '@legendapp/state';
+import { observer } from '@legendapp/state/react';
 import { useEffect } from 'react';
 
 const startTime = Date.now();
 const duration = 30000;
 const numElements = 100;
 
-const colors = state((_: number) => '');
-const numColorUpdates = state(0);
-const secondsRunning = state(0);
+const colorMap = new Map<number, ObservablePrimitiveBaseFns<string>>();
+const colors = (key: number) => {
+  let color = colorMap.get(key);
+  if (!color) {
+    color = observable('');
+    colorMap.set(key, color);
+  }
+  return color;
+};
+const numColorUpdates = observable(0);
+const secondsRunning = observable(0);
 const updateInfo = () => {
-  numColorUpdates.set(x => x + 1);
+  numColorUpdates.set(prev => prev + 1);
   secondsRunning.set((Date.now() - startTime) / 1000);
 };
 
-const Cell = cube(({ n }) => {
-  const backgroundColor = colors(n);
+const Cell = observer(({ n }: { n: number }) => {
+  const backgroundColor = colors(n).get();
 
   return (
     <div
@@ -46,24 +54,22 @@ const Matrix = () => {
   );
 };
 
-const Info = () => {
+const Info = observer(() => {
   return (
     <>
-      <h1 style={{ fontWeight: 100 }}>{rx(secondsRunning)}</h1>
-      <div>{rx(numColorUpdates)} colors</div>
+      <h1 style={{ fontWeight: 100 }}>{secondsRunning.get()}</h1>
+      <div>{numColorUpdates.get()} colors</div>
       <div>
-        {rx(() => Math.floor(numColorUpdates() / secondsRunning()))} colors per
+        {Math.floor(numColorUpdates.get() / secondsRunning.get())} colors per
         second
       </div>
     </>
   );
-};
+});
 
 function setColor(n: number) {
-  batch(() => {
-    colors.set(`#${Math.floor(Math.random() * 16777215).toString(16)}`, n);
-    updateInfo();
-  });
+  colors(n).set(`#${Math.floor(Math.random() * 16777215).toString(16)}`);
+  updateInfo();
   if (Date.now() - startTime >= duration) {
     return;
   }
@@ -83,7 +89,7 @@ const PerformancePage = () => {
     <div className="container-box">
       <main>
         <div>
-          <h1>RECUBE</h1>
+          <h1>LEGENDAPP/STATE</h1>
           <a
             href="https://codesandbox.io/s/redux-performance-hbit7?file=/src/App.js"
             target="_blank"

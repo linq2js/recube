@@ -1,21 +1,30 @@
-import { batch, state } from 'recube';
-import { cube, rx } from 'recube/react';
+import { signal, batch, Signal } from '@preact/signals-react';
+import { useSignals } from '@preact/signals-react/runtime';
 import { useEffect } from 'react';
 
 const startTime = Date.now();
 const duration = 30000;
 const numElements = 100;
 
-const colors = state((_: number) => '');
-const numColorUpdates = state(0);
-const secondsRunning = state(0);
+const colorMap = new Map<number, Signal<string>>();
+const colors = (key: number) => {
+  let color = colorMap.get(key);
+  if (!color) {
+    color = signal('');
+    colorMap.set(key, color);
+  }
+  return color;
+};
+const numColorUpdates = signal(0);
+const secondsRunning = signal(0);
 const updateInfo = () => {
-  numColorUpdates.set(x => x + 1);
-  secondsRunning.set((Date.now() - startTime) / 1000);
+  numColorUpdates.value++;
+  secondsRunning.value = (Date.now() - startTime) / 1000;
 };
 
-const Cell = cube(({ n }) => {
-  const backgroundColor = colors(n);
+const Cell = ({ n }: { n: number }) => {
+  useSignals();
+  const backgroundColor = colors(n).value;
 
   return (
     <div
@@ -34,7 +43,7 @@ const Cell = cube(({ n }) => {
       {n}
     </div>
   );
-});
+};
 
 const Matrix = () => {
   return (
@@ -47,12 +56,14 @@ const Matrix = () => {
 };
 
 const Info = () => {
+  useSignals();
+
   return (
     <>
-      <h1 style={{ fontWeight: 100 }}>{rx(secondsRunning)}</h1>
-      <div>{rx(numColorUpdates)} colors</div>
+      <h1 style={{ fontWeight: 100 }}>{secondsRunning.value}</h1>
+      <div>{numColorUpdates.value} colors</div>
       <div>
-        {rx(() => Math.floor(numColorUpdates() / secondsRunning()))} colors per
+        {Math.floor(numColorUpdates.value / secondsRunning.value)} colors per
         second
       </div>
     </>
@@ -61,7 +72,7 @@ const Info = () => {
 
 function setColor(n: number) {
   batch(() => {
-    colors.set(`#${Math.floor(Math.random() * 16777215).toString(16)}`, n);
+    colors(n).value = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
     updateInfo();
   });
   if (Date.now() - startTime >= duration) {
@@ -83,7 +94,7 @@ const PerformancePage = () => {
     <div className="container-box">
       <main>
         <div>
-          <h1>RECUBE</h1>
+          <h1>PREACT/SIGNALS</h1>
           <a
             href="https://codesandbox.io/s/redux-performance-hbit7?file=/src/App.js"
             target="_blank"
